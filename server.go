@@ -3,59 +3,27 @@ package pnet
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"io"
 	"log"
 	"net"
 )
 
-type HandleFunc func([]byte) ([]byte, error)
-type Encoding interface {
-	Encode([]byte) ([]byte, error, bool)
-	Decode([]byte) ([]byte, error, bool)
-}
-
-type DefaultEncoding struct {
-}
-
-func (de *DefaultEncoding) Encode(data []byte) ([]byte, error, bool) {
-	return data, nil, false
-}
-
-func (de *DefaultEncoding) Decode(data []byte) ([]byte, error, bool) {
-	return data, nil, false
-}
-
-type EndPoint struct {
-	handles map[string]HandleFunc
-	keys    []string
-}
-
 type Server struct {
-	Host          string
-	Port          string
-	Initinize     func(*Server)
-	FinishConn    func(string, string, error)
-	NoMatchHandle func(string, string, []byte) bool
-	EndPoint      *EndPoint
-	Encoding      Encoding
+	Host             string
+	Port             string
+	Initinize        func(*Server)
+	AcceptConnHandle func(net.Conn)
+	Handle           func([]byte, int64) ([]byte, error)
+	FinishConnHandle func(net.Conn, error)
 }
 
-func NewServer(host, port string, e Encoding) *Server {
-	endPoint := &EndPoint{
-		handles: make(map[string]HandleFunc),
-	}
+func NewServer(host, port string) *Server {
 	server := &Server{
-		Host:     host,
-		Port:     port,
-		EndPoint: endPoint,
-		Encoding: e,
+		Host: host,
+		Port: port,
 	}
 	return server
-}
-
-func (s *Server) AddHandle(name string, f HandleFunc) {
-	s.EndPoint.handles[name] = f
-	s.EndPoint.keys = append(s.EndPoint.keys, name)
 }
 
 func (s *Server) Listen() error {
@@ -71,79 +39,74 @@ func (s *Server) Listen() error {
 		if err != nil {
 			log.Println(err)
 		}
-		s.handleConn(conn)
+		go s.handleConn(conn)
 	}
-	return nil
 }
 
 func (s *Server) handleConn(conn net.Conn) {
+	if s.AcceptConnHandle != nil {
+		s.AcceptConnHandle(conn)
+	}
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 	rw := bufio.NewReadWriter(reader, writer)
-	host, port, _ := net.SplitHostPort(conn.LocalAddr().String())
 	for {
-		line, _, err := rw.ReadLine()
+		dataSizeByte := make([]byte, 8)
+		_, err := rw.Read(dataSizeByte)
 		switch {
 		case err == io.EOF:
 			log.Println("读取完成, ", err.Error())
-			if s.FinishConn != nil {
-				s.FinishConn(host, port, err)
+			if s.FinishConnHandle != nil {
+				s.FinishConnHandle(conn, err)
 			}
 			return
 		case err != nil:
 			log.Println("读取出错, ", err.Error())
-			if s.FinishConn != nil {
-				s.FinishConn(host, port, err)
+			if s.FinishConnHandle != nil {
+				s.FinishConnHandle(conn, err)
 			}
 			return
 		}
 
-		data, err, close := s.Encoding.Decode(line)
-		if err != nil {
-			log.Println("解码失败, ", err.Error())
-			if close {
-				conn.Close()
-				return
+		dataSizeBuffer := bytes.NewBuffer(dataSizeByte)
+		var dataLength int64
+		binary.Read(dataSizeBuffer, binary.BigEndian, &dataLength)
+
+		dataByte := make([]byte, dataLength)
+		_, err = rw.Read(dataByte)
+		switch {
+		case err == io.EOF:
+			log.Println("读取完成, ", err.Error())
+			if s.FinishConnHandle != nil {
+				s.FinishConnHandle(conn, err)
 			}
-			continue
-		}
-		var handle HandleFunc
-		var handleName []byte
-		for _, k := range s.EndPoint.keys {
-			if bytes.HasPrefix(data, []byte(k)) {
-				handle = s.EndPoint.handles[k]
-				handleName = []byte(k)
-				break
+			return
+		case err != nil:
+			log.Println("读取出错, ", err.Error())
+			if s.FinishConnHandle != nil {
+				s.FinishConnHandle(conn, err)
 			}
+			return
 		}
 
-		rawData := bytes.TrimPrefix(data, handleName)
-		if handle == nil {
-			if s.NoMatchHandle != nil {
-				if s.NoMatchHandle(host, port, rawData) {
-					conn.Close()
-					return
-				}
-			}
-			continue
-		}
-
-		response, err := handle(rawData)
+		respData, err := s.Handle(dataByte, dataLength)
 		if err != nil {
+			log.Println(err)
 			conn.Close()
 			return
 		}
-
-		decoded, err, close := s.Encoding.Encode(response)
-		if err != nil {
-			log.Println("编码失败, ", err.Error())
-			if close {
-				conn.Close()
-				return
-			}
+		if len(respData) == 0 {
 			continue
 		}
-		rw.Write(decoded)
+		respLen := uint64(len(respData))
+		respPackLen := make([]byte, 8)
+		binary.BigEndian.PutUint64(respPackLen, respLen)
+
+		buffer := &bytes.Buffer{}
+		buffer.Write(respPackLen)
+		buffer.Write(respData)
+
+		rw.Write(buffer.Bytes())
 		rw.Flush()
 	}
 }
