@@ -22,10 +22,10 @@ func (t *Test) hello2() {
 
 }
 
-func MainHandle(msg *pnet.Message) ([]byte, error) {
+func MainHandle(msg *pnet.Message) (uint64, []byte, error) {
 	log.Println(msg.Length)
 	log.Println(string(msg.Data))
-	return []byte("this is server message"), nil
+	return 100, []byte("this is server message"), nil
 }
 
 func Encode(data []byte) []byte {

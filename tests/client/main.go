@@ -20,7 +20,8 @@ func main() {
 		panic(err)
 	}
 	log.Println("length: ", data.Length)
-	log.Println("raw data:", data.RawData)
-	log.Println("data: ", data.Data)
+	log.Println("task id: ", data.TaskId)
+	log.Println("raw data:", data.RawData, string(data.RawData))
+	log.Println("data: ", data.Data, string(data.Data))
 	client.Close()
 }

@@ -31,7 +31,7 @@ func (c *Client) Connect() (err error) {
 }
 
 func (c *Client) Send(dataBytes []byte) error {
-	return c.rw.WritePack(dataBytes)
+	return c.rw.WritePack(1, dataBytes)
 }
 
 func (c *Client) Read() (*Message, error) {

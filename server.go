@@ -13,7 +13,7 @@ type Server struct {
 	Cer              *tls.Certificate
 	Initinize        func(*Server)
 	AcceptConnHandle func(net.Conn)
-	Handle           func(*Message) ([]byte, error)
+	Handle           func(*Message) (uint64, []byte, error)
 	FinishConnHandle func(net.Conn, error)
 	Coding           *Coding
 }
@@ -28,10 +28,8 @@ func NewServer(host, port string) *Server {
 
 func NewTlsServer(host, port, pubKey, priKey string) *Server {
 	server := &Server{
-		Host:   host,
-		Port:   port,
-		PubKey: pubKey,
-		PriKey: priKey,
+		Host: host,
+		Port: port,
 	}
 	return server
 }
@@ -76,13 +74,13 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 
 		if s.Handle != nil {
-			respData, err := s.Handle(msg)
+			respTaskId, respData, err := s.Handle(msg)
 			if err != nil {
 				log.Println(err)
 				conn.Close()
 				return
 			}
-			rw.WritePack(respData)
+			rw.WritePack(respTaskId, respData)
 		}
 	}
 }
