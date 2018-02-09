@@ -14,24 +14,39 @@ type Test struct {
 	Property string
 }
 
-func (t *Test) Hello1(data []byte) ([]byte, error) {
-	log.Println(string(data))
+func (t *Test) Hello1(msg *pnet.Message) ([]byte, error) {
+	log.Println(string(msg.Data))
 	return nil, nil
 }
 func (t *Test) hello2() {
 
 }
 
-func MainHandle(data []byte, length int64) ([]byte, error) {
-	log.Println(data)
-	log.Println(string(data))
+func MainHandle(msg *pnet.Message) ([]byte, error) {
+	log.Println(msg.Length)
+	log.Println(string(msg.Data))
 	return []byte("this is server message"), nil
 }
 
+func Encode(data []byte) []byte {
+	log.Println("encode")
+	return data
+}
+
+func Decode(data []byte) ([]byte, error) {
+	log.Println("decode")
+	return data, nil
+}
+
 func main() {
+	coding := &pnet.Coding{
+	// Encode: Encode,
+	// Decode: Decode,
+	}
 	server := pnet.NewServer("127.0.0.1", "10000")
 	server.Initinize = Initinize
 	server.Handle = MainHandle
+	server.Coding = coding
 	err := server.Listen()
 	if err != nil {
 		panic(err)

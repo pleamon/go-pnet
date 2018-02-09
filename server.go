@@ -1,9 +1,7 @@
 package pnet
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/binary"
+	"crypto/tls"
 	"io"
 	"log"
 	"net"
@@ -12,16 +10,28 @@ import (
 type Server struct {
 	Host             string
 	Port             string
+	Cer              *tls.Certificate
 	Initinize        func(*Server)
 	AcceptConnHandle func(net.Conn)
-	Handle           func([]byte, int64) ([]byte, error)
+	Handle           func(*Message) ([]byte, error)
 	FinishConnHandle func(net.Conn, error)
+	Coding           *Coding
 }
 
 func NewServer(host, port string) *Server {
 	server := &Server{
 		Host: host,
 		Port: port,
+	}
+	return server
+}
+
+func NewTlsServer(host, port, pubKey, priKey string) *Server {
+	server := &Server{
+		Host:   host,
+		Port:   port,
+		PubKey: pubKey,
+		PriKey: priKey,
 	}
 	return server
 }
@@ -47,12 +57,9 @@ func (s *Server) handleConn(conn net.Conn) {
 	if s.AcceptConnHandle != nil {
 		s.AcceptConnHandle(conn)
 	}
-	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriter(conn)
-	rw := bufio.NewReadWriter(reader, writer)
+	rw := NewReaderWriterFromConn(conn, s.Coding)
 	for {
-		dataSizeByte := make([]byte, 8)
-		_, err := rw.Read(dataSizeByte)
+		msg, err := rw.ReadPack()
 		switch {
 		case err == io.EOF:
 			log.Println("读取完成, ", err.Error())
@@ -68,45 +75,14 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 
-		dataSizeBuffer := bytes.NewBuffer(dataSizeByte)
-		var dataLength int64
-		binary.Read(dataSizeBuffer, binary.BigEndian, &dataLength)
-
-		dataByte := make([]byte, dataLength)
-		_, err = rw.Read(dataByte)
-		switch {
-		case err == io.EOF:
-			log.Println("读取完成, ", err.Error())
-			if s.FinishConnHandle != nil {
-				s.FinishConnHandle(conn, err)
+		if s.Handle != nil {
+			respData, err := s.Handle(msg)
+			if err != nil {
+				log.Println(err)
+				conn.Close()
+				return
 			}
-			return
-		case err != nil:
-			log.Println("读取出错, ", err.Error())
-			if s.FinishConnHandle != nil {
-				s.FinishConnHandle(conn, err)
-			}
-			return
+			rw.WritePack(respData)
 		}
-
-		respData, err := s.Handle(dataByte, dataLength)
-		if err != nil {
-			log.Println(err)
-			conn.Close()
-			return
-		}
-		if len(respData) == 0 {
-			continue
-		}
-		respLen := uint64(len(respData))
-		respPackLen := make([]byte, 8)
-		binary.BigEndian.PutUint64(respPackLen, respLen)
-
-		buffer := &bytes.Buffer{}
-		buffer.Write(respPackLen)
-		buffer.Write(respData)
-
-		rw.Write(buffer.Bytes())
-		rw.Flush()
 	}
 }

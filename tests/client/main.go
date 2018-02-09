@@ -19,6 +19,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	log.Println(string(data))
+	log.Println("length: ", data.Length)
+	log.Println("raw data:", data.RawData)
+	log.Println("data: ", data.Data)
 	client.Close()
 }
