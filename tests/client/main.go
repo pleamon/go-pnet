@@ -19,6 +19,21 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	log.Println("client id: ", data.ClientId)
+	log.Println("length: ", data.Length)
+	log.Println("task id: ", data.TaskId)
+	log.Println("raw data:", data.RawData, string(data.RawData))
+	log.Println("data: ", data.Data, string(data.Data))
+
+	err = client.Send([]byte("hello world"))
+	if err != nil {
+		panic(err)
+	}
+	data, err = client.Read()
+	if err != nil {
+		panic(err)
+	}
+	log.Println("client id: ", data.ClientId)
 	log.Println("length: ", data.Length)
 	log.Println("task id: ", data.TaskId)
 	log.Println("raw data:", data.RawData, string(data.RawData))

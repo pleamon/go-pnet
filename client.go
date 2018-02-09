@@ -7,11 +7,12 @@ import (
 )
 
 type Client struct {
-	Host   string
-	Port   string
-	conn   net.Conn
-	rw     *ReadWriter
-	Coding *Coding
+	Host        string
+	Port        string
+	GetClientId func(net.Conn) string
+	conn        net.Conn
+	rw          *ReadWriter
+	Coding      *Coding
 }
 
 func NewClient(host, port string) (client *Client) {
@@ -24,8 +25,11 @@ func NewClient(host, port string) (client *Client) {
 
 func (c *Client) Connect() (err error) {
 	c.conn, err = net.Dial("tcp", net.JoinHostPort(c.Host, c.Port))
+	if c.GetClientId == nil {
+		c.GetClientId = GetClientId
+	}
 	if err == nil {
-		c.rw = NewReaderWriterFromConn(c.conn, c.Coding)
+		c.rw = NewReaderWriterFromConn(c.GetClientId(c.conn), c.conn, c.Coding)
 	}
 	return
 }

@@ -23,8 +23,11 @@ func (t *Test) hello2() {
 }
 
 func MainHandle(msg *pnet.Message) (uint64, []byte, error) {
-	log.Println(msg.Length)
-	log.Println(string(msg.Data))
+	log.Println("client id: ", msg.ClientId)
+	log.Println("length: ", msg.Length)
+	log.Println("task id: ", msg.TaskId)
+	log.Println("raw data:", msg.RawData, string(msg.RawData))
+	log.Println("data: ", msg.Data, string(msg.Data))
 	return 100, []byte("this is server message"), nil
 }
 

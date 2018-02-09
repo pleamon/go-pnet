@@ -14,6 +14,7 @@ type Coding struct {
 }
 
 type ReadWriter struct {
+	ClientId string
 	*bufio.Writer
 	*bufio.Reader
 	LenPlace    int
@@ -22,17 +23,19 @@ type ReadWriter struct {
 }
 
 type Message struct {
-	Length  int64
-	TaskId  int64
-	RawData []byte
-	Data    []byte
-	err     error
+	ClientId string
+	Length   int64
+	TaskId   int64
+	RawData  []byte
+	Data     []byte
+	err      error
 }
 
-func NewReaderWriterFromConn(conn net.Conn, coding *Coding) *ReadWriter {
+func NewReaderWriterFromConn(clientId string, conn net.Conn, coding *Coding) *ReadWriter {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 	rw := &ReadWriter{
+		ClientId:    clientId,
 		Reader:      reader,
 		Writer:      writer,
 		LenPlace:    8,
@@ -42,9 +45,15 @@ func NewReaderWriterFromConn(conn net.Conn, coding *Coding) *ReadWriter {
 	return rw
 }
 
+func GetClientId(conn net.Conn) string {
+	return conn.RemoteAddr().String()
+}
+
 func (rw *ReadWriter) ReadPack() (*Message, error) {
 	dataLength, err := rw.ReadPackLen()
-	msg := new(Message)
+	msg := &Message{
+		ClientId: rw.ClientId,
+	}
 	if err != nil {
 		return nil, err
 	}

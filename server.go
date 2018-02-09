@@ -11,6 +11,7 @@ type Server struct {
 	Host             string
 	Port             string
 	Cer              *tls.Certificate
+	GetClientId      func(net.Conn) string
 	Initinize        func(*Server)
 	AcceptConnHandle func(net.Conn)
 	Handle           func(*Message) (uint64, []byte, error)
@@ -42,6 +43,9 @@ func (s *Server) Listen() error {
 	if s.Initinize != nil {
 		s.Initinize(s)
 	}
+	if s.GetClientId == nil {
+		s.GetClientId = GetClientId
+	}
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -55,7 +59,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	if s.AcceptConnHandle != nil {
 		s.AcceptConnHandle(conn)
 	}
-	rw := NewReaderWriterFromConn(conn, s.Coding)
+	rw := NewReaderWriterFromConn(s.GetClientId(conn), conn, s.Coding)
 	for {
 		msg, err := rw.ReadPack()
 		switch {
