@@ -7,6 +7,7 @@ import (
 	"net"
 )
 
+// Client is Client struct.
 type Client struct {
 	Host        string
 	Port        string
@@ -16,6 +17,7 @@ type Client struct {
 	Coding      *Coding
 }
 
+// NewClient create a new client.
 func NewClient(host, port string) (client *Client) {
 	client = &Client{
 		Host: host,
@@ -24,6 +26,7 @@ func NewClient(host, port string) (client *Client) {
 	return
 }
 
+// Connect is Client connect to Server.
 func (c *Client) Connect() (err error) {
 	c.conn, err = net.Dial("tcp", net.JoinHostPort(c.Host, c.Port))
 	if c.GetClientID == nil {
@@ -35,8 +38,9 @@ func (c *Client) Connect() (err error) {
 	return
 }
 
-func (c *Client) Send(taskID uint64, dataBytes []byte) (uint64, error) {
-	return c.rw.WritePack(taskID, dataBytes)
+// Send send message to server
+func (c *Client) Send(taskID, messageID uint64, dataBytes []byte) error {
+	return c.rw.WritePack(taskID, messageID, dataBytes)
 }
 
 func (c *Client) Read() (*Message, error) {

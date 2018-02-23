@@ -35,25 +35,22 @@ func main() {
 		}
 	}()
 
-	msgId, err := client.Send(1, []byte("this is message 1"))
+	err := client.Send(1, 1, []byte("this is message 1"))
 	if err != nil {
 		panic(err)
 	}
-	log.Println("send 1 msg id:", msgId)
 	wg.Add(1)
 
-	msgId, err = client.Send(2, []byte("this is message 2"))
+	err = client.Send(2, 2, []byte("this is message 2"))
 	if err != nil {
 		panic(err)
 	}
-	log.Println("send 2 msg id:", msgId)
 	wg.Add(1)
 
-	msgId, err = client.Send(3, []byte("this is message 3"))
+	err = client.Send(3, 3, []byte("this is message 3"))
 	if err != nil {
 		panic(err)
 	}
-	log.Println("send 3 msg id:", msgId)
 	wg.Add(1)
 
 	wg.Wait()

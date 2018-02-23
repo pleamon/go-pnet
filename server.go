@@ -13,8 +13,8 @@ type Server struct {
 	GetClientID      func(net.Conn) string
 	Initinize        func(*Server)
 	AcceptConnHandle func(net.Conn)
-	AsyncHandle      func(*Message) (uint64, []byte, error)
-	SyncHandle       func(*Message) (uint64, []byte, error)
+	AsyncHandle      func(*Message) ([]byte, error)
+	SyncHandle       func(*Message) ([]byte, error)
 	FinishConnHandle func(net.Conn, error)
 	Coding           *Coding
 }
@@ -70,19 +70,17 @@ func (s *Server) handleConn(conn net.Conn) {
 		case msg := <-msgChan:
 			log.Println("msg: ", msg)
 			if s.AsyncHandle != nil {
-				go func(rw *ReadWriter) {
-					respTaskID, respData, err := s.AsyncHandle(msg)
+				go func(rw *ReadWriter, msg *Message) {
+					respData, err := s.AsyncHandle(msg)
 					if err != nil {
 						log.Println(err)
 						conn.Close()
 						return
 					}
-					rw.WritePack(respTaskID, respData)
-				}(rw)
-				log.Println("next")
+					rw.WritePack(msg.TaskID, msg.MessageID, respData)
+				}(rw, msg)
 			}
 		case <-ctx.Done():
-			log.Println("err", ctx.Err())
 			if s.FinishConnHandle != nil {
 				s.FinishConnHandle(conn, ctx.Err())
 			}

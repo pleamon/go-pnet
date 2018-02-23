@@ -139,11 +139,10 @@ func (rw *ReadWriter) ReadPackData(length int64) ([]byte, error) {
 	return dataByte, nil
 }
 
-func (rw *ReadWriter) WritePack(taskID uint64, dataByte []byte) (uint64, error) {
+func (rw *ReadWriter) WritePack(taskID, MessageID uint64, dataByte []byte) error {
 	if len(dataByte) == 0 {
-		return 0, errors.New("not data")
+		return errors.New("not data")
 	}
-	rw.MessageID++
 	dataLength := uint64(len(dataByte))
 	encodeData := dataByte
 	if rw.Coding != nil && rw.Coding.Encode != nil {
@@ -157,34 +156,34 @@ func (rw *ReadWriter) WritePack(taskID uint64, dataByte []byte) (uint64, error) 
 	binary.BigEndian.PutUint64(respPackTaskID, taskID)
 
 	respMessageID := make([]byte, rw.MessageIDPlace)
-	binary.BigEndian.PutUint64(respMessageID, rw.MessageID)
+	binary.BigEndian.PutUint64(respMessageID, MessageID)
 
 	buffer := &bytes.Buffer{}
 	_, err := buffer.Write(respPackLen)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	_, err = buffer.Write(respPackTaskID)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	_, err = buffer.Write(respMessageID)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	_, err = buffer.Write(encodeData)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	_, err = rw.Write(buffer.Bytes())
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return rw.MessageID, rw.Flush()
+	return rw.Flush()
 }
 
 func (rw *ReadWriter) ReadToMessageChan(msgChan chan *Message) (ctx context.Context, cancel context.CancelFunc) {
