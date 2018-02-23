@@ -2,7 +2,6 @@ package pnet
 
 import (
 	"crypto/tls"
-	"io"
 	"log"
 	"net"
 )
@@ -11,10 +10,11 @@ type Server struct {
 	Host             string
 	Port             string
 	Cer              *tls.Certificate
-	GetClientId      func(net.Conn) string
+	GetClientID      func(net.Conn) string
 	Initinize        func(*Server)
 	AcceptConnHandle func(net.Conn)
-	Handle           func(*Message) (uint64, []byte, error)
+	AsyncHandle      func(*Message) (uint64, []byte, error)
+	SyncHandle       func(*Message) (uint64, []byte, error)
 	FinishConnHandle func(net.Conn, error)
 	Coding           *Coding
 }
@@ -43,8 +43,8 @@ func (s *Server) Listen() error {
 	if s.Initinize != nil {
 		s.Initinize(s)
 	}
-	if s.GetClientId == nil {
-		s.GetClientId = GetClientId
+	if s.GetClientID == nil {
+		s.GetClientID = GetClientID
 	}
 	for {
 		conn, err := l.Accept()
@@ -59,32 +59,34 @@ func (s *Server) handleConn(conn net.Conn) {
 	if s.AcceptConnHandle != nil {
 		s.AcceptConnHandle(conn)
 	}
-	rw := NewReaderWriterFromConn(s.GetClientId(conn), conn, s.Coding)
-	for {
-		msg, err := rw.ReadPack()
-		switch {
-		case err == io.EOF:
-			log.Println("读取完成, ", err.Error())
-			if s.FinishConnHandle != nil {
-				s.FinishConnHandle(conn, err)
-			}
-			return
-		case err != nil:
-			log.Println("读取出错, ", err.Error())
-			if s.FinishConnHandle != nil {
-				s.FinishConnHandle(conn, err)
-			}
-			return
-		}
+	rw := NewReaderWriterFromConn(s.GetClientID(conn), conn, s.Coding)
 
-		if s.Handle != nil {
-			respTaskId, respData, err := s.Handle(msg)
-			if err != nil {
-				log.Println(err)
-				conn.Close()
-				return
+	msgChan := make(chan *Message, 100)
+
+	ctx, _ := rw.ReadToMessageChan(msgChan)
+
+	for {
+		select {
+		case msg := <-msgChan:
+			log.Println("msg: ", msg)
+			if s.AsyncHandle != nil {
+				go func(rw *ReadWriter) {
+					respTaskID, respData, err := s.AsyncHandle(msg)
+					if err != nil {
+						log.Println(err)
+						conn.Close()
+						return
+					}
+					rw.WritePack(respTaskID, respData)
+				}(rw)
+				log.Println("next")
 			}
-			rw.WritePack(respTaskId, respData)
+		case <-ctx.Done():
+			log.Println("err", ctx.Err())
+			if s.FinishConnHandle != nil {
+				s.FinishConnHandle(conn, ctx.Err())
+			}
+			return
 		}
 	}
 }
