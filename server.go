@@ -6,37 +6,48 @@ import (
 	"net"
 )
 
+type ClientInfo struct {
+	ClientID string
+	Conn     *net.Conn
+	RW       *ReadWriter
+}
+
+var (
+	ClientPool map[string]*ClientInfo
+)
+
 type Server struct {
-	Host             string
-	Port             string
+	Addr             string
 	Cer              *tls.Certificate
-	GetClientID      func(net.Conn) string
+	GetClientID      func(*net.Conn) string
 	Initinize        func(*Server)
-	AcceptConnHandle func(net.Conn)
+	AcceptConnHandle func(*net.Conn, *ReadWriter, string) ([]byte, error)
 	AsyncHandle      func(*Message) ([]byte, error)
 	SyncHandle       func(*Message) ([]byte, error)
-	FinishConnHandle func(net.Conn, error)
+	FinishConnHandle func(*net.Conn, error)
 	Coding           *Coding
 }
 
-func NewServer(host, port string) *Server {
+func init() {
+	ClientPool = make(map[string]*ClientInfo)
+}
+
+func NewServer(addr string) *Server {
 	server := &Server{
-		Host: host,
-		Port: port,
+		Addr: addr,
 	}
 	return server
 }
 
-func NewTlsServer(host, port, pubKey, priKey string) *Server {
+func NewTlsServer(addr, pubKey, priKey string) *Server {
 	server := &Server{
-		Host: host,
-		Port: port,
+		Addr: addr,
 	}
 	return server
 }
 
 func (s *Server) Listen() error {
-	l, err := net.Listen("tcp", net.JoinHostPort(s.Host, s.Port))
+	l, err := net.Listen("tcp", s.Addr)
 	if err != nil {
 		return err
 	}
@@ -51,15 +62,27 @@ func (s *Server) Listen() error {
 		if err != nil {
 			log.Println(err)
 		}
-		go s.handleConn(conn)
+		go s.handleConn(&conn)
 	}
 }
 
-func (s *Server) handleConn(conn net.Conn) {
-	if s.AcceptConnHandle != nil {
-		s.AcceptConnHandle(conn)
-	}
+func (s *Server) handleConn(conn *net.Conn) {
+	clientID := s.GetClientID(conn)
 	rw := NewReaderWriterFromConn(s.GetClientID(conn), conn, s.Coding)
+	ClientPool[clientID] = &ClientInfo{
+		ClientID: clientID,
+		Conn:     conn,
+		RW:       rw,
+	}
+	if s.AcceptConnHandle != nil {
+		respData, err := s.AcceptConnHandle(conn, rw, s.GetClientID(conn))
+		if err != nil {
+			log.Println(err)
+			(*conn).Close()
+			return
+		}
+		rw.WritePack(respData)
+	}
 
 	msgChan := make(chan *Message, 100)
 
@@ -74,16 +97,17 @@ func (s *Server) handleConn(conn net.Conn) {
 					respData, err := s.AsyncHandle(msg)
 					if err != nil {
 						log.Println(err)
-						conn.Close()
+						(*conn).Close()
 						return
 					}
-					rw.WritePack(msg.TaskID, msg.MessageID, respData)
+					rw.WritePack(respData)
 				}(rw, msg)
 			}
 		case <-ctx.Done():
 			if s.FinishConnHandle != nil {
 				s.FinishConnHandle(conn, ctx.Err())
 			}
+			delete(ClientPool, clientID)
 			return
 		}
 	}

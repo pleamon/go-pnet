@@ -9,26 +9,25 @@ import (
 
 // Client is Client struct.
 type Client struct {
-	Host        string
-	Port        string
-	GetClientID func(net.Conn) string
-	conn        net.Conn
+	Addr        string
+	GetClientID func(*net.Conn) string
+	conn        *net.Conn
 	rw          *ReadWriter
 	Coding      *Coding
 }
 
 // NewClient create a new client.
-func NewClient(host, port string) (client *Client) {
+func NewClient(addr string) (client *Client) {
 	client = &Client{
-		Host: host,
-		Port: port,
+		Addr: addr,
 	}
 	return
 }
 
 // Connect is Client connect to Server.
 func (c *Client) Connect() (err error) {
-	c.conn, err = net.Dial("tcp", net.JoinHostPort(c.Host, c.Port))
+	conn, err := net.Dial("tcp", c.Addr)
+	c.conn = &conn
 	if c.GetClientID == nil {
 		c.GetClientID = GetClientID
 	}
@@ -38,9 +37,16 @@ func (c *Client) Connect() (err error) {
 	return
 }
 
+func (c *Client) Disconnect() error {
+	if c.conn != nil {
+		return (*c.conn).Close()
+	}
+	return nil
+}
+
 // Send send message to server
-func (c *Client) Send(taskID, messageID uint64, dataBytes []byte) error {
-	return c.rw.WritePack(taskID, messageID, dataBytes)
+func (c *Client) Send(dataBytes []byte) error {
+	return c.rw.WritePack(dataBytes)
 }
 
 func (c *Client) Read() (*Message, error) {
@@ -62,5 +68,5 @@ func (c *Client) ReadToMessageChan(msgChan chan *Message) (ctx context.Context, 
 }
 
 func (c *Client) Close() {
-	c.conn.Close()
+	(*c.conn).Close()
 }

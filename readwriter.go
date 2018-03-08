@@ -19,40 +19,34 @@ type ReadWriter struct {
 	MessageID uint64
 	*bufio.Writer
 	*bufio.Reader
-	LenPlace       int
-	TaskIdPlace    int
-	MessageIDPlace int
-	Coding         *Coding
+	LenPlace int
+	Coding   *Coding
 }
 
 type Message struct {
-	ClientID  string
-	Length    int64
-	TaskID    uint64
-	MessageID uint64
-	RawData   []byte
-	Data      []byte
-	err       error
+	ClientID string
+	Length   int64
+	RawData  []byte
+	Data     []byte
+	err      error
 }
 
-func NewReaderWriterFromConn(clientId string, conn net.Conn, coding *Coding) *ReadWriter {
-	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriter(conn)
+func NewReaderWriterFromConn(clientId string, conn *net.Conn, coding *Coding) *ReadWriter {
+	reader := bufio.NewReader(*conn)
+	writer := bufio.NewWriter(*conn)
 	rw := &ReadWriter{
-		ClientId:       clientId,
-		Reader:         reader,
-		Writer:         writer,
-		LenPlace:       8,
-		TaskIdPlace:    8,
-		MessageIDPlace: 8,
-		MessageID:      0,
-		Coding:         coding,
+		ClientId:  clientId,
+		Reader:    reader,
+		Writer:    writer,
+		LenPlace:  8,
+		MessageID: 0,
+		Coding:    coding,
 	}
 	return rw
 }
 
-func GetClientID(conn net.Conn) string {
-	return conn.RemoteAddr().String()
+func GetClientID(conn *net.Conn) string {
+	return (*conn).RemoteAddr().String()
 }
 
 func (rw *ReadWriter) ResetMessageId() {
@@ -67,21 +61,11 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	dataTaskID, err := rw.ReadPackTaskID()
-	if err != nil {
-		return nil, err
-	}
-	dataMessageID, err := rw.ReadMessageID()
-	if err != nil {
-		return nil, err
-	}
 	data, err := rw.ReadPackData(dataLength)
 	if err != nil {
 		return nil, err
 	}
 	msg.Length = dataLength
-	msg.TaskID = dataTaskID
-	msg.MessageID = dataMessageID
 	msg.RawData = data
 	if rw.Coding != nil && rw.Coding.Decode != nil {
 		msg.Data, msg.err = rw.Coding.Decode(msg.RawData)
@@ -104,32 +88,6 @@ func (rw *ReadWriter) ReadPackLen() (int64, error) {
 	return dataLength, nil
 }
 
-func (rw *ReadWriter) ReadPackTaskID() (uint64, error) {
-	dataByte := make([]byte, rw.TaskIdPlace)
-	_, err := rw.Read(dataByte)
-	if err != nil {
-		return 0, err
-	}
-	dataBuffer := bytes.NewBuffer(dataByte)
-	var dataTaskID uint64
-	binary.Read(dataBuffer, binary.BigEndian, &dataTaskID)
-
-	return dataTaskID, nil
-}
-
-func (rw *ReadWriter) ReadMessageID() (uint64, error) {
-	dataByte := make([]byte, rw.MessageIDPlace)
-	_, err := rw.Read(dataByte)
-	if err != nil {
-		return 0, err
-	}
-	dataBuffer := bytes.NewBuffer(dataByte)
-	var dataMesageID uint64
-	binary.Read(dataBuffer, binary.BigEndian, &dataMesageID)
-
-	return dataMesageID, nil
-}
-
 func (rw *ReadWriter) ReadPackData(length int64) ([]byte, error) {
 	dataByte := make([]byte, length)
 	_, err := rw.Read(dataByte)
@@ -139,7 +97,7 @@ func (rw *ReadWriter) ReadPackData(length int64) ([]byte, error) {
 	return dataByte, nil
 }
 
-func (rw *ReadWriter) WritePack(taskID, MessageID uint64, dataByte []byte) error {
+func (rw *ReadWriter) WritePack(dataByte []byte) error {
 	if len(dataByte) == 0 {
 		return errors.New("not data")
 	}
@@ -152,24 +110,8 @@ func (rw *ReadWriter) WritePack(taskID, MessageID uint64, dataByte []byte) error
 	respPackLen := make([]byte, rw.LenPlace)
 	binary.BigEndian.PutUint64(respPackLen, dataLength)
 
-	respPackTaskID := make([]byte, rw.TaskIdPlace)
-	binary.BigEndian.PutUint64(respPackTaskID, taskID)
-
-	respMessageID := make([]byte, rw.MessageIDPlace)
-	binary.BigEndian.PutUint64(respMessageID, MessageID)
-
 	buffer := &bytes.Buffer{}
 	_, err := buffer.Write(respPackLen)
-	if err != nil {
-		return err
-	}
-
-	_, err = buffer.Write(respPackTaskID)
-	if err != nil {
-		return err
-	}
-
-	_, err = buffer.Write(respMessageID)
 	if err != nil {
 		return err
 	}
