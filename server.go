@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"log"
 	"net"
+	"sync"
 )
 
 type ClientInfo struct {
@@ -13,7 +14,7 @@ type ClientInfo struct {
 }
 
 var (
-	ClientPool map[string]*ClientInfo
+	ClientPool sync.Map
 )
 
 type Server struct {
@@ -24,12 +25,11 @@ type Server struct {
 	AcceptConnHandle func(*net.Conn, *ReadWriter, string) ([]byte, error)
 	AsyncHandle      func(*Message) ([]byte, error)
 	SyncHandle       func(*Message) ([]byte, error)
-	FinishConnHandle func(*net.Conn, error)
+	FinishConnHandle func(string, *net.Conn, error)
 	Coding           *Coding
 }
 
 func init() {
-	ClientPool = make(map[string]*ClientInfo)
 }
 
 func NewServer(addr string) *Server {
@@ -69,11 +69,12 @@ func (s *Server) Listen() error {
 func (s *Server) handleConn(conn *net.Conn) {
 	clientID := s.GetClientID(conn)
 	rw := NewReaderWriterFromConn(s.GetClientID(conn), conn, s.Coding)
-	ClientPool[clientID] = &ClientInfo{
+	clientInfo := &ClientInfo{
 		ClientID: clientID,
 		Conn:     conn,
 		RW:       rw,
 	}
+	ClientPool.Store(clientID, clientInfo)
 	if s.AcceptConnHandle != nil {
 		respData, err := s.AcceptConnHandle(conn, rw, s.GetClientID(conn))
 		if err != nil {
@@ -105,9 +106,9 @@ func (s *Server) handleConn(conn *net.Conn) {
 			}
 		case <-ctx.Done():
 			if s.FinishConnHandle != nil {
-				s.FinishConnHandle(conn, ctx.Err())
+				s.FinishConnHandle(clientID, conn, ctx.Err())
 			}
-			delete(ClientPool, clientID)
+			ClientPool.Delete(clientID)
 			return
 		}
 	}

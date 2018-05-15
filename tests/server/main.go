@@ -11,7 +11,7 @@ func Initinize(s *pnet.Server) {
 	log.Printf("启动服务程序成功，监听端口 [%s]\n", s.Addr)
 }
 
-func AcceptConnHandle(conn, net.Conn, rw *pnet.ReadWriter, clientId string) ([]byte, error) {
+func AcceptConnHandle(conn net.Conn, rw *pnet.ReadWriter, clientId string) ([]byte, error) {
 	return nil, nil
 }
 
