@@ -13,17 +13,16 @@ type ClientInfo struct {
 	RW       *ReadWriter
 }
 
-var (
-	ClientPool sync.Map
-)
+var ()
 
 type Server struct {
 	Addr             string
+	ClientPool       sync.Map
 	Cer              *tls.Certificate
 	GetClientID      func(*net.Conn) string
 	Initinize        func(*Server)
-	AcceptConnHandle func(*net.Conn, *ReadWriter, string) ([]byte, error)
-	AsyncHandle      func(*Message) ([]byte, error)
+	AcceptConnHandle func(*Server, *ClientInfo) ([]byte, error)
+	AsyncHandle      func(*Server, *ClientInfo, *Message) ([]byte, error)
 	SyncHandle       func(*Message) ([]byte, error)
 	FinishConnHandle func(string, *net.Conn, error)
 	Coding           *Coding
@@ -74,9 +73,9 @@ func (s *Server) handleConn(conn *net.Conn) {
 		Conn:     conn,
 		RW:       rw,
 	}
-	ClientPool.Store(clientID, clientInfo)
+	s.ClientPool.Store(clientID, clientInfo)
 	if s.AcceptConnHandle != nil {
-		respData, err := s.AcceptConnHandle(conn, rw, s.GetClientID(conn))
+		respData, err := s.AcceptConnHandle(s, clientInfo)
 		if err != nil {
 			log.Println(err)
 			(*conn).Close()
@@ -95,7 +94,7 @@ func (s *Server) handleConn(conn *net.Conn) {
 			log.Println("msg: ", msg)
 			if s.AsyncHandle != nil {
 				go func(rw *ReadWriter, msg *Message) {
-					respData, err := s.AsyncHandle(msg)
+					respData, err := s.AsyncHandle(s, clientInfo, msg)
 					if err != nil {
 						log.Println(err)
 						(*conn).Close()
@@ -108,7 +107,7 @@ func (s *Server) handleConn(conn *net.Conn) {
 			if s.FinishConnHandle != nil {
 				s.FinishConnHandle(clientID, conn, ctx.Err())
 			}
-			ClientPool.Delete(clientID)
+			s.ClientPool.Delete(clientID)
 			return
 		}
 	}

@@ -111,6 +111,7 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 	binary.BigEndian.PutUint64(respPackLen, dataLength)
 
 	buffer := &bytes.Buffer{}
+
 	_, err := buffer.Write(respPackLen)
 	if err != nil {
 		return err
