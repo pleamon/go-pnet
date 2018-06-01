@@ -67,7 +67,7 @@ func (s *Server) Listen() error {
 
 func (s *Server) handleConn(conn *net.Conn) {
 	clientID := s.GetClientID(conn)
-	rw := NewReaderWriterFromConn(s.GetClientID(conn), conn, s.Coding)
+	rw := NewReaderWriterFromConn(clientID, conn, s.Coding)
 	clientInfo := &ClientInfo{
 		ClientID: clientID,
 		Conn:     conn,
@@ -100,7 +100,9 @@ func (s *Server) handleConn(conn *net.Conn) {
 						(*conn).Close()
 						return
 					}
-					rw.WritePack(respData)
+					if len(respData) > 0 {
+						rw.WritePack(respData)
+					}
 				}(rw, msg)
 			}
 		case <-ctx.Done():
