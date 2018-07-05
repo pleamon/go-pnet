@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"log"
 	"net"
 )
 
@@ -54,6 +55,11 @@ func (rw *ReadWriter) ResetMessageId() {
 }
 
 func (rw *ReadWriter) ReadPack() (*Message, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println("read path recover:", err)
+		}
+	}()
 	dataLength, err := rw.ReadPackLen()
 	msg := &Message{
 		ClientID: rw.ClientId,
