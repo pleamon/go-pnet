@@ -1,3 +1,6 @@
+/*
+Package 网络工具包
+*/
 package pnet
 
 import (
@@ -7,6 +10,9 @@ import (
 	"sync"
 )
 
+/*
+ClientInfo 客户端信息
+*/
 type ClientInfo struct {
 	ClientID string
 	Conn     *net.Conn
@@ -24,6 +30,7 @@ type Server struct {
 	AcceptConnHandle func(*Server, *ClientInfo) ([]byte, error)
 	AsyncHandle      func(*Server, *ClientInfo, *Message) ([]byte, error)
 	SyncHandle       func(*Message) ([]byte, error)
+	ErrorHandle      func(rw *ReadWriter)
 	FinishConnHandle func(string, *net.Conn, error)
 	Coding           *Coding
 }
@@ -92,7 +99,13 @@ func (s *Server) handleConn(conn *net.Conn) {
 		select {
 		case msg := <-msgChan:
 			log.Println("msg: ", msg)
-			if s.AsyncHandle != nil {
+			if msg == nil {
+				if s.ErrorHandle != nil {
+					go func(rw *ReadWriter) {
+						s.ErrorHandle(rw)
+					}(rw)
+				}
+			} else if s.AsyncHandle != nil {
 				go func(rw *ReadWriter, msg *Message) {
 					respData, err := s.AsyncHandle(s, clientInfo, msg)
 					if err != nil {
