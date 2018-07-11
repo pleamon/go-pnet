@@ -67,6 +67,7 @@ func (s *Server) Listen() error {
 		conn, err := l.Accept()
 		if err != nil {
 			log.Println(err)
+			continue
 		}
 		go s.handleConn(&conn)
 	}
@@ -98,14 +99,7 @@ func (s *Server) handleConn(conn *net.Conn) {
 	for {
 		select {
 		case msg := <-msgChan:
-			log.Println("msg: ", msg)
-			if msg == nil {
-				if s.ErrorHandle != nil {
-					go func(rw *ReadWriter) {
-						s.ErrorHandle(rw)
-					}(rw)
-				}
-			} else if s.AsyncHandle != nil {
+			if s.AsyncHandle != nil {
 				go func(rw *ReadWriter, msg *Message) {
 					respData, err := s.AsyncHandle(s, clientInfo, msg)
 					if err != nil {
