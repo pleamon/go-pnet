@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 type ClientInfo struct {
@@ -17,11 +18,13 @@ var ()
 
 type Server struct {
 	Addr             string
+	HeathTicker      time.Duration
 	ClientPool       sync.Map
 	Cer              *tls.Certificate
 	GetClientID      func(*net.Conn) string
 	Initinize        func(*Server)
 	AcceptConnHandle func(*Server, *ClientInfo) ([]byte, error)
+	HeathHandle      func(*Server, *ClientInfo) error
 	AsyncHandle      func(*Server, *ClientInfo, *Message) ([]byte, error)
 	SyncHandle       func(*Message) ([]byte, error)
 	FinishConnHandle func(string, *net.Conn, error)
@@ -31,9 +34,10 @@ type Server struct {
 func init() {
 }
 
-func NewServer(addr string) *Server {
+func NewServer(addr string, heathTicker time.Duration) *Server {
 	server := &Server{
-		Addr: addr,
+		Addr:        addr,
+		HeathTicker: heathTicker,
 	}
 	return server
 }
@@ -88,6 +92,7 @@ func (s *Server) handleConn(conn *net.Conn) {
 
 	ctx, _ := rw.ReadToMessageChan(msgChan)
 
+	tick := time.NewTicker(s.HeathTicker)
 	for {
 		select {
 		case msg := <-msgChan:
@@ -111,6 +116,12 @@ func (s *Server) handleConn(conn *net.Conn) {
 			}
 			s.ClientPool.Delete(clientID)
 			return
+		case <-tick.C:
+			if s.HeathHandle != nil {
+				if err := s.HeathHandle(s, clientInfo); err != nil {
+					(*conn).Close()
+				}
+			}
 		}
 	}
 }
