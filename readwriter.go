@@ -55,11 +55,6 @@ func (rw *ReadWriter) ResetMessageId() {
 }
 
 func (rw *ReadWriter) ReadPack() (*Message, error) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Println("read pack recover:", err)
-		}
-	}()
 	dataLength, err := rw.ReadPackLen()
 	msg := &Message{
 		ClientID: rw.ClientId,
@@ -143,6 +138,11 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 func (rw *ReadWriter) ReadToMessageChan(msgChan chan *Message) (ctx context.Context, cancel context.CancelFunc) {
 	ctx, cancel = context.WithCancel(context.Background())
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Println("ReadToMessageChan recover:", err)
+			}
+		}()
 		for {
 			msg, err := rw.ReadPack()
 			if err != nil {

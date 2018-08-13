@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"log"
 	"net"
-	"sync"
+	//"sync"
 	"time"
 )
 
@@ -12,6 +12,7 @@ type ClientInfo struct {
 	ClientID string
 	Conn     *net.Conn
 	RW       *ReadWriter
+	IsConnected bool
 }
 
 var ()
@@ -19,7 +20,8 @@ var ()
 type Server struct {
 	Addr             string
 	HeathTicker      time.Duration
-	ClientPool       sync.Map
+	//ClientPool       sync.Map
+	ClientPool       map[string]*ClientInfo
 	Cer              *tls.Certificate
 	GetClientID      func(*net.Conn) string
 	Initinize        func(*Server)
@@ -38,6 +40,7 @@ func init() {
 func NewServer(addr string, heathTickers ...time.Duration) *Server {
 	server := &Server{
 		Addr: addr,
+		ClientPool: make(map[string]*ClientInfo),
 	}
 	if len(heathTickers) > 0 {
 		server.HeathTicker = heathTickers[0]
@@ -106,8 +109,10 @@ func (s *Server) handleConn(conn *net.Conn) {
 		ClientID: clientID,
 		Conn:     conn,
 		RW:       rw,
+		IsConnected: true,
 	}
-	s.ClientPool.Store(clientID, clientInfo)
+	//s.ClientPool.Store(clientID, clientInfo)
+	s.ClientPool[clientID] = clientInfo
 	if s.AcceptConnHandle != nil {
 		respData, err := s.AcceptConnHandle(s, clientInfo)
 		if err != nil {
@@ -146,7 +151,9 @@ func (s *Server) handleConn(conn *net.Conn) {
 			if s.FinishConnHandle != nil {
 				s.FinishConnHandle(clientID, conn, ctx.Err())
 			}
-			s.ClientPool.Delete(clientID)
+			s.ClientPool[clientID].IsConnected = false
+			//delete(s.ClientPool, clientID)
+			//s.ClientPool.Delete(clientID)
 			tickDone <- true
 			return
 		case <-tick:
