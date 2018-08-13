@@ -57,7 +57,7 @@ func (rw *ReadWriter) ResetMessageId() {
 func (rw *ReadWriter) ReadPack() (*Message, error) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Println("read path recover:", err)
+			log.Println("read pack recover:", err)
 		}
 	}()
 	dataLength, err := rw.ReadPackLen()
@@ -65,11 +65,11 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 		ClientID: rw.ClientId,
 	}
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	data, err := rw.ReadPackData(dataLength)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	msg.Length = dataLength
 	msg.RawData = data
@@ -107,6 +107,11 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 	if len(dataByte) == 0 {
 		return errors.New("not data")
 	}
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println("write data recover:", err)
+		}
+	}()
 	dataLength := uint64(len(dataByte))
 	encodeData := dataByte
 	if rw.Coding != nil && rw.Coding.Encode != nil {
@@ -120,17 +125,17 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 
 	_, err := buffer.Write(respPackLen)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	_, err = buffer.Write(encodeData)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	_, err = rw.Write(buffer.Bytes())
 	if err != nil {
-		return err
+		panic(err)
 	}
 	return rw.Flush()
 }

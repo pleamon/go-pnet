@@ -28,16 +28,19 @@ type Server struct {
 	AsyncHandle      func(*Server, *ClientInfo, *Message) ([]byte, error)
 	SyncHandle       func(*Message) ([]byte, error)
 	FinishConnHandle func(string, *net.Conn, error)
+	ErrorHandle      func(int, interface{})
 	Coding           *Coding
 }
 
 func init() {
 }
 
-func NewServer(addr string, heathTicker time.Duration) *Server {
+func NewServer(addr string, heathTickers ...time.Duration) *Server {
 	server := &Server{
-		Addr:        addr,
-		HeathTicker: heathTicker,
+		Addr: addr,
+	}
+	if len(heathTickers) > 0 {
+		server.HeathTicker = heathTickers[0]
 	}
 	return server
 }
@@ -69,7 +72,34 @@ func (s *Server) Listen() error {
 	}
 }
 
+func (s *Server) createTicker(tick chan time.Time, done chan bool) {
+	if s.HeathTicker == 0 {
+
+	} else {
+		ticker := time.NewTicker(s.HeathTicker)
+		for {
+			select {
+
+			case <-ticker.C:
+				tick <- time.Now()
+			case <-done:
+				ticker.Stop()
+				break
+			}
+		}
+	}
+}
+
 func (s *Server) handleConn(conn *net.Conn) {
+	defer func() {
+		err := recover()
+
+		if s.ErrorHandle != nil {
+			s.ErrorHandle(ErrorHandleConn, err)
+		} else {
+			log.Println(err)
+		}
+	}()
 	clientID := s.GetClientID(conn)
 	rw := NewReaderWriterFromConn(clientID, conn, s.Coding)
 	clientInfo := &ClientInfo{
@@ -92,7 +122,9 @@ func (s *Server) handleConn(conn *net.Conn) {
 
 	ctx, _ := rw.ReadToMessageChan(msgChan)
 
-	tick := time.NewTicker(s.HeathTicker)
+	tick := make(chan time.Time)
+	tickDone := make(chan bool, 1)
+	s.createTicker(tick, tickDone)
 	for {
 		select {
 		case msg := <-msgChan:
@@ -115,8 +147,9 @@ func (s *Server) handleConn(conn *net.Conn) {
 				s.FinishConnHandle(clientID, conn, ctx.Err())
 			}
 			s.ClientPool.Delete(clientID)
+			tickDone <- true
 			return
-		case <-tick.C:
+		case <-tick:
 			if s.HeathHandle != nil {
 				if err := s.HeathHandle(s, clientInfo); err != nil {
 					(*conn).Close()

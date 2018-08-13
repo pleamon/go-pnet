@@ -15,12 +15,13 @@ func AcceptConnHandle(conn net.Conn, rw *pnet.ReadWriter, clientId string) ([]by
 	return nil, nil
 }
 
-func MainHandle(msg *pnet.Message) ([]byte, error) {
+func MainHandle(server *pnet.Server, clientId *pnet.ClientInfo, msg *pnet.Message) ([]byte, error) {
 	log.Println("client id: ", msg.ClientID)
 	log.Println("length: ", msg.Length)
 	log.Println("raw data:", msg.RawData, string(msg.RawData))
 	log.Println("data: ", msg.Data, string(msg.Data))
-	return []byte("this is server message"), nil
+	log.Println("this is server message")
+	return nil, nil
 }
 
 func Encode(data []byte) []byte {
@@ -38,7 +39,7 @@ func main() {
 	// Encode: Encode,
 	// Decode: Decode,
 	// }
-	server := pnet.NewServer("127.0.0.1:10000")
+	server := pnet.NewServer("127.0.0.1:10000", 0)
 	server.Initinize = Initinize
 	server.AsyncHandle = MainHandle
 	// server.Coding = coding
