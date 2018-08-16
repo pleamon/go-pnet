@@ -9,17 +9,17 @@ import (
 )
 
 type ClientInfo struct {
-	ClientID string
-	Conn     *net.Conn
-	RW       *ReadWriter
+	ClientID    string
+	Conn        *net.Conn
+	RW          *ReadWriter
 	IsConnected bool
 }
 
 var ()
 
 type Server struct {
-	Addr             string
-	HeathTicker      time.Duration
+	Addr        string
+	HeathTicker time.Duration
 	//ClientPool       sync.Map
 	ClientPool       map[string]*ClientInfo
 	Cer              *tls.Certificate
@@ -39,7 +39,7 @@ func init() {
 
 func NewServer(addr string, heathTickers ...time.Duration) *Server {
 	server := &Server{
-		Addr: addr,
+		Addr:       addr,
 		ClientPool: make(map[string]*ClientInfo),
 	}
 	if len(heathTickers) > 0 {
@@ -94,21 +94,12 @@ func (s *Server) createTicker(tick chan time.Time, done chan bool) {
 }
 
 func (s *Server) handleConn(conn *net.Conn) {
-	defer func() {
-		err := recover()
-
-		if s.ErrorHandle != nil {
-			s.ErrorHandle(ErrorHandleConn, err)
-		} else {
-			log.Println(err)
-		}
-	}()
 	clientID := s.GetClientID(conn)
 	rw := NewReaderWriterFromConn(clientID, conn, s.Coding)
 	clientInfo := &ClientInfo{
-		ClientID: clientID,
-		Conn:     conn,
-		RW:       rw,
+		ClientID:    clientID,
+		Conn:        conn,
+		RW:          rw,
 		IsConnected: true,
 	}
 	//s.ClientPool.Store(clientID, clientInfo)

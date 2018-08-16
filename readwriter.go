@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"log"
 	"net"
 )
 
@@ -60,11 +59,11 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 		ClientID: rw.ClientId,
 	}
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	data, err := rw.ReadPackData(dataLength)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	msg.Length = dataLength
 	msg.RawData = data
@@ -102,11 +101,6 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 	if len(dataByte) == 0 {
 		return errors.New("not data")
 	}
-	defer func() {
-		if err := recover(); err != nil {
-			log.Println("write data recover:", err)
-		}
-	}()
 	dataLength := uint64(len(dataByte))
 	encodeData := dataByte
 	if rw.Coding != nil && rw.Coding.Encode != nil {
@@ -120,17 +114,17 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 
 	_, err := buffer.Write(respPackLen)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	_, err = buffer.Write(encodeData)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	_, err = rw.Write(buffer.Bytes())
 	if err != nil {
-		panic(err)
+		return err
 	}
 	return rw.Flush()
 }
@@ -138,11 +132,6 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 func (rw *ReadWriter) ReadToMessageChan(msgChan chan *Message) (ctx context.Context, cancel context.CancelFunc) {
 	ctx, cancel = context.WithCancel(context.Background())
 	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				log.Println("ReadToMessageChan recover:", err)
-			}
-		}()
 		for {
 			msg, err := rw.ReadPack()
 			if err != nil {
