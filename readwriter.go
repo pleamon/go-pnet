@@ -6,6 +6,9 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"io"
+	"math"
 	"net"
 )
 
@@ -89,6 +92,9 @@ func (rw *ReadWriter) ReadPackLen() (int64, error) {
 }
 
 func (rw *ReadWriter) ReadPackData(length int64) ([]byte, error) {
+	if length > math.MaxUint32 {
+		return nil, fmt.Errorf("read pack data out of range [%d], current system max length [%d]", length, math.MaxUint32)
+	}
 	dataByte := make([]byte, length)
 	_, err := rw.Read(dataByte)
 	if err != nil {
@@ -134,9 +140,11 @@ func (rw *ReadWriter) ReadToMessageChan(msgChan chan *Message) (ctx context.Cont
 	go func() {
 		for {
 			msg, err := rw.ReadPack()
-			if err != nil {
+			if err == io.EOF {
 				cancel()
 				return
+			} else if err != nil {
+				continue
 			}
 			msgChan <- msg
 		}
