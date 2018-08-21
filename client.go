@@ -10,8 +10,8 @@ import (
 // Client is Client struct.
 type Client struct {
 	Addr        string
-	GetClientID func(*net.Conn) string
-	conn        *net.Conn
+	GetClientID func(net.Conn) string
+	conn        net.Conn
 	rw          *ReadWriter
 	Coding      *Coding
 }
@@ -27,19 +27,20 @@ func NewClient(addr string) (client *Client) {
 // Connect is Client connect to Server.
 func (c *Client) Connect() (err error) {
 	conn, err := net.Dial("tcp", c.Addr)
-	c.conn = &conn
+	if err != nil {
+		return err
+	}
+	c.conn = conn
 	if c.GetClientID == nil {
 		c.GetClientID = GetClientID
 	}
-	if err == nil {
-		c.rw = NewReaderWriterFromConn(c.GetClientID(c.conn), c.conn, c.Coding)
-	}
+	c.rw = NewReaderWriterFromConn(c.GetClientID(c.conn), c.conn, c.Coding)
 	return
 }
 
 func (c *Client) Disconnect() error {
 	if c.conn != nil {
-		return (*c.conn).Close()
+		return c.conn.Close()
 	}
 	return nil
 }
@@ -68,5 +69,5 @@ func (c *Client) ReadToMessageChan(msgChan chan *Message) (ctx context.Context, 
 }
 
 func (c *Client) Close() {
-	(*c.conn).Close()
+	c.conn.Close()
 }

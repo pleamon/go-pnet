@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net"
 	"sync"
 
 	"git.pleamon.com/p/pnet"
@@ -12,7 +13,8 @@ func main() {
 	msgChan := make(chan *pnet.Message, 100)
 	host := "127.0.0.1"
 	port := "10000"
-	client := pnet.NewClient(host, port)
+	addr := net.JoinHostPort(host, port)
+	client := pnet.NewClient(addr)
 	client.Connect()
 
 	ctx, _ := client.ReadToMessageChan(msgChan)
@@ -23,8 +25,6 @@ func main() {
 			case msg := <-msgChan:
 				log.Println("client id: ", msg.ClientID)
 				log.Println("length: ", msg.Length)
-				log.Println("task id: ", msg.TaskID)
-				log.Println("msg id: ", msg.MessageID)
 				log.Println("raw data:", msg.RawData, string(msg.RawData))
 				log.Println("data: ", msg.Data, string(msg.Data))
 			case <-ctx.Done():
@@ -35,19 +35,19 @@ func main() {
 		}
 	}()
 
-	err := client.Send(1, 1, []byte("this is message 1"))
+	err := client.Send([]byte("this is message 1"))
 	if err != nil {
 		panic(err)
 	}
 	wg.Add(1)
 
-	err = client.Send(2, 2, []byte("this is message 2"))
+	err = client.Send([]byte("this is message 2"))
 	if err != nil {
 		panic(err)
 	}
 	wg.Add(1)
 
-	err = client.Send(3, 3, []byte("this is message 3"))
+	err = client.Send([]byte("this is message 3"))
 	if err != nil {
 		panic(err)
 	}

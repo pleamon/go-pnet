@@ -7,15 +7,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net"
 )
-
-type Coding struct {
-	Encode func([]byte) []byte
-	Decode func([]byte) ([]byte, error)
-}
 
 type ReadWriter struct {
 	ClientId  string
@@ -34,9 +28,9 @@ type Message struct {
 	err      error
 }
 
-func NewReaderWriterFromConn(clientId string, conn *net.Conn, coding *Coding) *ReadWriter {
-	reader := bufio.NewReader(*conn)
-	writer := bufio.NewWriter(*conn)
+func NewReaderWriterFromConn(clientId string, conn net.Conn, coding *Coding) *ReadWriter {
+	reader := bufio.NewReader(conn)
+	writer := bufio.NewWriter(conn)
 	rw := &ReadWriter{
 		ClientId:  clientId,
 		Reader:    reader,
@@ -46,10 +40,6 @@ func NewReaderWriterFromConn(clientId string, conn *net.Conn, coding *Coding) *R
 		Coding:    coding,
 	}
 	return rw
-}
-
-func GetClientID(conn *net.Conn) string {
-	return (*conn).RemoteAddr().String()
 }
 
 func (rw *ReadWriter) ResetMessageId() {
@@ -135,16 +125,15 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 	return rw.Flush()
 }
 
+// ReadToMessageChan 读取客户端数据发送到管道
 func (rw *ReadWriter) ReadToMessageChan(msgChan chan *Message) (ctx context.Context, cancel context.CancelFunc) {
 	ctx, cancel = context.WithCancel(context.Background())
 	go func() {
 		for {
 			msg, err := rw.ReadPack()
-			if err == io.EOF {
+			if err != nil {
 				cancel()
 				return
-			} else if err != nil {
-				continue
 			}
 			msgChan <- msg
 		}
