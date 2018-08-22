@@ -81,7 +81,7 @@ func (s *Server) Listen() error {
 		}
 	}
 
-	s.Handler.Initinize(s)
+	s.Handler.OnServerInitinize(s)
 	if s.GetClientID == nil {
 		s.GetClientID = GetClientID
 	}
@@ -119,7 +119,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 	s.ClientPool[clientID] = clientInfo
 
-	respData, err := s.Handler.AcceptConnHandle(s, clientInfo)
+	respData, err := s.Handler.OnAccept(s, clientInfo)
 	if err != nil {
 		// log.Println(err)
 		conn.Close()
@@ -138,7 +138,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		select {
 		case msg := <-msgChan:
 			go func(ci *ClientInfo, msg *Message) {
-				respData, err := s.Handler.ReceiveMessageHandle(s, msg)
+				respData, err := s.Handler.OnReceive(s, msg)
 				if err != nil {
 					cancel()
 					return
@@ -150,13 +150,13 @@ func (s *Server) handleConn(conn net.Conn) {
 		case <-ctx.Done():
 			clientInfo.Lock()
 			defer clientInfo.Unlock()
-			s.Handler.FinishConnHandle(ctx.Err())
+			s.Handler.OnClose(ctx.Err())
 			delete(s.ClientPool, clientID)
 			tickDone <- true
 			conn.Close()
 			return
 		case <-tick:
-			if err := s.Handler.HeathHandle(s); err != nil {
+			if err := s.Handler.OnHeath(s); err != nil {
 				cancel()
 			}
 		}
