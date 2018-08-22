@@ -2,6 +2,8 @@ package pnet
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"io"
 	"log"
 	"net"
@@ -14,21 +16,60 @@ type Client struct {
 	conn        net.Conn
 	rw          *ReadWriter
 	Coding      *Coding
+	IsTLS       bool
+	CACert      []byte
+	PubKey      []byte
+	PriKey      []byte
 }
 
 // NewClient create a new client.
 func NewClient(addr string) (client *Client) {
 	client = &Client{
-		Addr: addr,
+		Addr:  addr,
+		IsTLS: false,
+	}
+	return
+}
+
+// NewTlsClient create a new client.
+func NewTlsClient(addr string, caCert, pubKey, priKey []byte) (client *Client) {
+	client = &Client{
+		Addr:   addr,
+		IsTLS:  true,
+		CACert: caCert,
+		PubKey: pubKey,
+		PriKey: priKey,
 	}
 	return
 }
 
 // Connect is Client connect to Server.
 func (c *Client) Connect() (err error) {
-	conn, err := net.Dial("tcp", c.Addr)
-	if err != nil {
-		return err
+	var conn net.Conn
+	if c.IsTLS {
+		pool := x509.NewCertPool()
+		ok := pool.AppendCertsFromPEM(c.CACert)
+		if !ok {
+			panic(err)
+		}
+		cer, err := tls.X509KeyPair(c.PubKey, c.PriKey)
+		if err != nil {
+			panic(err)
+		}
+		config := &tls.Config{
+			RootCAs:      pool,
+			Certificates: []tls.Certificate{cer},
+		}
+		conn, err = tls.Dial("tcp", c.Addr, config)
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		conn, err = net.Dial("tcp", c.Addr)
+		if err != nil {
+			return err
+		}
 	}
 	c.conn = conn
 	if c.GetClientID == nil {

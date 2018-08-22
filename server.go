@@ -2,21 +2,28 @@ package pnet
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"log"
 	"net"
+
 	//"sync"
 	"time"
+
+	"git.pleamon.com/p/plog"
 )
 
 type Server struct {
 	Addr        string
 	HeathTicker time.Duration
-	//ClientPool       sync.Map
 	ClientPool  map[string]*ClientInfo
 	Cer         *tls.Certificate
 	GetClientID func(net.Conn) string
 	Handler     ServerHandler
 	Coding      *Coding
+	IsTLS       bool
+	CACert      []byte
+	PubKey      []byte
+	PriKey      []byte
 }
 
 func NewServer(addr string, handler ServerHandler, heathTickers ...time.Duration) *Server {
@@ -24,6 +31,7 @@ func NewServer(addr string, handler ServerHandler, heathTickers ...time.Duration
 		Addr:       addr,
 		Handler:    handler,
 		ClientPool: make(map[string]*ClientInfo),
+		IsTLS:      false,
 	}
 	if len(heathTickers) > 0 {
 		server.HeathTicker = heathTickers[0]
@@ -31,27 +39,54 @@ func NewServer(addr string, handler ServerHandler, heathTickers ...time.Duration
 	return server
 }
 
-func NewTlsServer(addr, pubKey, priKey string) *Server {
+func NewTlsServer(addr string, caCert, pubKey, priKey []byte, handler ServerHandler, heathTickers ...time.Duration) *Server {
 	server := &Server{
-		Addr: addr,
+		Addr:       addr,
+		Handler:    handler,
+		ClientPool: make(map[string]*ClientInfo),
+		IsTLS:      true,
+		CACert:     caCert,
+		PubKey:     pubKey,
+		PriKey:     priKey,
 	}
 	return server
 }
 
 func (s *Server) Listen() error {
-	l, err := net.Listen("tcp", s.Addr)
-	if err != nil {
-		log.Println("server listen error: ", err)
-		return err
+
+	var ln net.Listener
+	if s.IsTLS {
+		pool := x509.NewCertPool()
+		pool.AppendCertsFromPEM(s.CACert)
+
+		cer, err := tls.X509KeyPair(s.PubKey, s.PriKey)
+		if err != nil {
+			plog.Fatal(err.Error())
+		}
+		config := &tls.Config{
+			Certificates: []tls.Certificate{cer},
+			ClientCAs:    pool,
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+		}
+		ln, err = tls.Listen("tcp", s.Addr, config)
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		ln, err = net.Listen("tcp", s.Addr)
+		if err != nil {
+			log.Println("server listen error: ", err)
+			return err
+		}
 	}
-	if s.Handler.Initinize != nil {
-		s.Handler.Initinize(s)
-	}
+
+	s.Handler.Initinize(s)
 	if s.GetClientID == nil {
 		s.GetClientID = GetClientID
 	}
 	for {
-		conn, err := l.Accept()
+		conn, err := ln.Accept()
 		if err != nil {
 			log.Println("accept: ", err)
 		}
