@@ -16,7 +16,6 @@ type Server struct {
 	Addr        string
 	HeathTicker time.Duration
 	ClientPool  map[string]*ClientInfo
-	Cer         *tls.Certificate
 	GetClientID func(net.Conn) string
 	Handler     ServerHandler
 	Coding      *Coding
