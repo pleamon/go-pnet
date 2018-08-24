@@ -37,6 +37,7 @@ func (cp *ClientPool) Del(name string) {
 	cp.unlock()
 }
 
-func (cp *ClientPool) Get(name string) *ClientInfo {
-	return cp.pool[name]
+func (cp *ClientPool) Get(name string) (*ClientInfo, bool) {
+	clientInfo, ok := cp.pool[name]
+	return clientInfo, ok
 }
