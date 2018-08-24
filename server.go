@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"log"
 	"net"
+	"sync"
 
 	//"sync"
 	"time"
@@ -15,7 +16,8 @@ import (
 type Server struct {
 	Addr        string
 	HeathTicker time.Duration
-	ClientPool  map[string]*ClientInfo
+	ClientPool  *ClientPool
+	lock        *sync.Mutex
 	GetClientID func(net.Conn) string
 	Handler     ServerHandler
 	Coding      *Coding
@@ -29,7 +31,7 @@ func NewServer(addr string, handler ServerHandler, heathTickers ...time.Duration
 	server := &Server{
 		Addr:       addr,
 		Handler:    handler,
-		ClientPool: make(map[string]*ClientInfo),
+		ClientPool: NewClientPool(),
 		IsTLS:      false,
 	}
 	if len(heathTickers) > 0 {
@@ -42,7 +44,7 @@ func NewTlsServer(addr string, caCert, pubKey, priKey []byte, handler ServerHand
 	server := &Server{
 		Addr:       addr,
 		Handler:    handler,
-		ClientPool: make(map[string]*ClientInfo),
+		ClientPool: NewClientPool(),
 		IsTLS:      true,
 		CACert:     caCert,
 		PubKey:     pubKey,
@@ -116,11 +118,11 @@ func (s *Server) handleConn(conn net.Conn) {
 	if s.Coding != nil {
 		clientInfo.RW.Coding = s.Coding
 	}
-	s.ClientPool[clientID] = clientInfo
+
+	s.ClientPool.Set(clientID, clientInfo)
 
 	respData, err := s.Handler.OnAccept(s, clientInfo)
 	if err != nil {
-		// log.Println(err)
 		conn.Close()
 		return
 	}
@@ -147,10 +149,8 @@ func (s *Server) handleConn(conn net.Conn) {
 				}
 			}(clientInfo, msg)
 		case <-ctx.Done():
-			clientInfo.Lock()
-			defer clientInfo.Unlock()
 			s.Handler.OnClose(ctx.Err())
-			delete(s.ClientPool, clientID)
+			s.ClientPool.Del(clientID)
 			tickDone <- true
 			conn.Close()
 			return

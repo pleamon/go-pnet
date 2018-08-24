@@ -3,7 +3,6 @@ package pnet
 import (
 	"context"
 	"net"
-	"sync"
 )
 
 type ClientInfo struct {
@@ -11,7 +10,6 @@ type ClientInfo struct {
 	ClientID string
 	Conn     net.Conn
 	RW       *ReadWriter
-	lock     *sync.Mutex
 }
 
 func NewClientInfo(clientID string, conn net.Conn, coding *Coding) *ClientInfo {
@@ -21,7 +19,6 @@ func NewClientInfo(clientID string, conn net.Conn, coding *Coding) *ClientInfo {
 		ClientID: clientID,
 		Conn:     conn,
 		RW:       rw,
-		lock:     &sync.Mutex{},
 	}
 	return clientInfo
 }
@@ -36,12 +33,4 @@ func (ci *ClientInfo) Write(data []byte) error {
 
 func (ci *ClientInfo) ReadToMessageChan(msgChan chan *Message) (context.Context, context.CancelFunc) {
 	return ci.RW.ReadToMessageChan(msgChan)
-}
-
-func (ci *ClientInfo) Lock() {
-	ci.lock.Lock()
-}
-
-func (ci *ClientInfo) Unlock() {
-	ci.lock.Unlock()
 }
