@@ -31,7 +31,6 @@ func main() {
 				log.Println("done")
 				return
 			}
-			wg.Done()
 		}
 	}()
 
@@ -39,13 +38,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	wg.Add(1)
 
 	err = client.Send([]byte("this is message 2"))
 	if err != nil {
 		panic(err)
 	}
-	wg.Add(1)
 
 	err = client.Send([]byte("this is message 3"))
 	if err != nil {

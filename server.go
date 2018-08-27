@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"log"
 	"net"
-	"sync"
 
 	//"sync"
 	"time"
@@ -14,41 +13,31 @@ import (
 )
 
 type Server struct {
-	Addr        string
-	HeathTicker time.Duration
-	ClientPool  *ClientPool
-	lock        *sync.Mutex
-	GetClientID func(net.Conn) string
-	Handler     ServerHandler
-	Coding      *Coding
-	IsTLS       bool
-	CACert      []byte
-	PubKey      []byte
-	PriKey      []byte
+	Addr          string
+	HeathTicker   time.Duration
+	ClientPool    *ClientPool
+	GetClientID   func(net.Conn) string
+	initinize     func(*Server)
+	Coding        *Coding
+	IsTLS         bool
+	CACert        []byte
+	PubKey        []byte
+	PriKey        []byte
+	ClientHandler *ClientHandler
 }
 
-func NewServer(addr string, handler ServerHandler, heathTickers ...time.Duration) *Server {
+func NewServer(addr string, config *ServerConfig) *Server {
 	server := &Server{
-		Addr:       addr,
-		Handler:    handler,
-		ClientPool: NewClientPool(),
-		IsTLS:      false,
+		Addr:          addr,
+		ClientPool:    NewClientPool(),
+		ClientHandler: NewClientHandler(config),
+		HeathTicker:   config.HeathTicker,
 	}
-	if len(heathTickers) > 0 {
-		server.HeathTicker = heathTickers[0]
-	}
-	return server
-}
-
-func NewTlsServer(addr string, caCert, pubKey, priKey []byte, handler ServerHandler, heathTickers ...time.Duration) *Server {
-	server := &Server{
-		Addr:       addr,
-		Handler:    handler,
-		ClientPool: NewClientPool(),
-		IsTLS:      true,
-		CACert:     caCert,
-		PubKey:     pubKey,
-		PriKey:     priKey,
+	if config.CACert != nil {
+		server.IsTLS = true
+		server.CACert = config.CACert
+		server.PubKey = config.PubKey
+		server.PriKey = config.PriKey
 	}
 	return server
 }
@@ -81,8 +70,7 @@ func (s *Server) Listen() error {
 			return err
 		}
 	}
-
-	s.Handler.OnServerInitinize(s)
+	s.ClientHandler.Initinize(s)
 	if s.GetClientID == nil {
 		s.GetClientID = GetClientID
 	}
@@ -121,12 +109,9 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	s.ClientPool.Set(clientID, clientInfo)
 
-	respData, err := s.Handler.OnAccept(s, clientInfo)
-	if err != nil {
-		conn.Close()
-		return
+	if data := s.ClientHandler.OnAccept(s, clientInfo); data != nil {
+		clientInfo.Write(data)
 	}
-	clientInfo.Write(respData)
 
 	msgChan := make(chan *Message, 100)
 
@@ -139,23 +124,18 @@ func (s *Server) handleConn(conn net.Conn) {
 		select {
 		case msg := <-msgChan:
 			go func(ci *ClientInfo, msg *Message) {
-				respData, err := s.Handler.OnReceive(s, msg)
-				if err != nil {
-					cancel()
-					return
-				}
-				if len(respData) > 0 {
-					ci.Write(respData)
+				if data := s.ClientHandler.OnReceive(s, clientInfo, msg); data != nil {
+					ci.Write(data)
 				}
 			}(clientInfo, msg)
 		case <-ctx.Done():
-			s.Handler.OnClose(ctx.Err())
+			s.ClientHandler.OnClose(s, clientInfo, ctx.Err())
 			s.ClientPool.Del(clientID)
 			tickDone <- true
 			conn.Close()
 			return
 		case <-tick:
-			if err := s.Handler.OnHeath(s); err != nil {
+			if err := s.ClientHandler.OnHeath(s, clientInfo); err != nil {
 				cancel()
 			}
 		}
