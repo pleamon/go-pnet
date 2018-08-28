@@ -16,8 +16,6 @@ type Server struct {
 	Addr          string
 	HeathTicker   time.Duration
 	ClientPool    *ClientPool
-	initinize     func(*Server)
-	Coding        *Coding
 	IsTLS         bool
 	CACert        []byte
 	PubKey        []byte
@@ -99,10 +97,7 @@ func (s *Server) createTicker(tick chan time.Time, done chan bool) {
 
 func (s *Server) handleConn(conn net.Conn) {
 	clientID := s.ClientHandler.GetClientID(conn)
-	clientInfo := NewClientInfo(clientID, conn, s.Coding)
-	if s.Coding != nil {
-		clientInfo.RW.Coding = s.Coding
-	}
+	clientInfo := NewClientInfo(clientID, conn)
 
 	s.ClientPool.Set(clientID, clientInfo)
 

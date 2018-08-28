@@ -75,7 +75,7 @@ func (c *Client) Connect() (err error) {
 	if c.GetClientID == nil {
 		c.GetClientID = GetClientID
 	}
-	c.rw = NewReaderWriterFromConn(c.GetClientID(c.conn), c.conn, c.Coding)
+	c.rw = NewReaderWriterFromConn(c.GetClientID(c.conn), c.conn)
 	return
 }
 

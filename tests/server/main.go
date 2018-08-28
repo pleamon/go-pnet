@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net"
 	"time"
 
 	"git.pleamon.com/p/pnet"
@@ -9,6 +10,10 @@ import (
 
 func initinize(server *pnet.Server) {
 	log.Printf("启动服务程序成功，监听端口 [%s]", server.Addr)
+}
+
+func getClientId(conn net.Conn) string {
+	return conn.RemoteAddr().String()
 }
 
 func onAccept(server *pnet.Server, clientInfo *pnet.ClientInfo) []byte {
@@ -36,12 +41,9 @@ func onClose(server *pnet.Server, clientInfo *pnet.ClientInfo, closeInfo interfa
 }
 
 func main() {
-	// coding := &pnet.Coding{
-	// Encode: Encode,
-	// Decode: Decode,
-	// }
 	serverConfig := &pnet.ServerConfig{
 		HeathTicker: time.Second * 10,
+		GetClientID: getClientId,
 		Initinize:   initinize,
 		OnAccept:    onAccept,
 		OnHeath:     onHeath,

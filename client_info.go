@@ -12,8 +12,8 @@ type ClientInfo struct {
 	RW       *ReadWriter
 }
 
-func NewClientInfo(clientID string, conn net.Conn, coding *Coding) *ClientInfo {
-	rw := NewReaderWriterFromConn(clientID, conn, coding)
+func NewClientInfo(clientID string, conn net.Conn) *ClientInfo {
+	rw := NewReaderWriterFromConn(clientID, conn)
 	clientInfo := &ClientInfo{
 		Addr:     conn.RemoteAddr().String(),
 		ClientID: clientID,

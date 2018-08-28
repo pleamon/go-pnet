@@ -17,7 +17,6 @@ type ReadWriter struct {
 	*bufio.Writer
 	*bufio.Reader
 	LenPlace int
-	Coding   *Coding
 }
 
 type Message struct {
@@ -28,7 +27,7 @@ type Message struct {
 	err      error
 }
 
-func NewReaderWriterFromConn(clientId string, conn net.Conn, coding *Coding) *ReadWriter {
+func NewReaderWriterFromConn(clientId string, conn net.Conn) *ReadWriter {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 	rw := &ReadWriter{
@@ -37,7 +36,6 @@ func NewReaderWriterFromConn(clientId string, conn net.Conn, coding *Coding) *Re
 		Writer:    writer,
 		LenPlace:  8,
 		MessageID: 0,
-		Coding:    coding,
 	}
 	return rw
 }
@@ -60,11 +58,6 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 	}
 	msg.Length = dataLength
 	msg.RawData = data
-	if rw.Coding != nil && rw.Coding.Decode != nil {
-		msg.Data, msg.err = rw.Coding.Decode(msg.RawData)
-	} else {
-		msg.Data = msg.RawData
-	}
 	return msg, nil
 }
 
@@ -99,10 +92,6 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 	}
 	dataLength := uint64(len(dataByte))
 	encodeData := dataByte
-	if rw.Coding != nil && rw.Coding.Encode != nil {
-		encodeData = rw.Coding.Encode(dataByte)
-		dataLength = uint64(len(encodeData))
-	}
 	respPackLen := make([]byte, rw.LenPlace)
 	binary.BigEndian.PutUint64(respPackLen, dataLength)
 
