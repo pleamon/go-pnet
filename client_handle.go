@@ -1,6 +1,11 @@
 package pnet
 
+import (
+	"net"
+)
+
 type ClientHandler struct {
+	GetClientID func(net.Conn) string
 	// 程序初始化时调用
 	Initinize func(*Server)
 	// 有新客户端连接时调用
@@ -17,11 +22,12 @@ type ClientHandler struct {
 
 func NewClientHandler(config *ServerConfig) *ClientHandler {
 	return &ClientHandler{
-		Initinize: config.Initinize,
-		OnAccept:  config.OnAccept,
-		OnHeath:   config.OnHeath,
-		OnReceive: config.OnReceive,
-		OnClose:   config.OnClose,
-		OnError:   config.OnError,
+		GetClientID: config.GetClientID,
+		Initinize:   config.Initinize,
+		OnAccept:    config.OnAccept,
+		OnHeath:     config.OnHeath,
+		OnReceive:   config.OnReceive,
+		OnClose:     config.OnClose,
+		OnError:     config.OnError,
 	}
 }
