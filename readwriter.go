@@ -22,7 +22,6 @@ type ReadWriter struct {
 type Message struct {
 	ClientID string
 	Length   int64
-	RawData  []byte
 	Data     []byte
 	err      error
 }
@@ -57,7 +56,7 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 		return nil, err
 	}
 	msg.Length = dataLength
-	msg.RawData = data
+	msg.Data = data
 	return msg, nil
 }
 
