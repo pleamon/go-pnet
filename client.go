@@ -5,8 +5,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
-	"log"
 	"net"
+
+	"git.pleamon.com/p/plog"
 )
 
 // Client is Client struct.
@@ -62,12 +63,14 @@ func (c *Client) Connect() (err error) {
 		}
 		conn, err = tls.Dial("tcp", c.Addr, config)
 		if err != nil {
+			plog.Fatal(err)
 			return err
 		}
 	} else {
 		var err error
 		conn, err = net.Dial("tcp", c.Addr)
 		if err != nil {
+			plog.Fatal(err)
 			return err
 		}
 	}
@@ -95,10 +98,10 @@ func (c *Client) Read() (*Message, error) {
 	msg, err := c.rw.ReadPack()
 	switch {
 	case err == io.EOF:
-		log.Println("读取完成, ", err.Error())
+		plog.Debug("读取完成, ", err)
 		return nil, err
 	case err != nil:
-		log.Println("读取出错, ", err.Error())
+		plog.Debug("读取出错, ", err)
 		return nil, err
 	}
 

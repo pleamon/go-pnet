@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"math"
 	"net"
+
+	"git.pleamon.com/p/plog"
 )
 
 type ReadWriter struct {
@@ -49,10 +51,12 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 		ClientID: rw.ClientId,
 	}
 	if err != nil {
+		plog.Debug(err)
 		return nil, err
 	}
 	data, err := rw.ReadPackData(dataLength)
 	if err != nil {
+		plog.Debug(err)
 		return nil, err
 	}
 	msg.Length = dataLength
@@ -64,6 +68,7 @@ func (rw *ReadWriter) ReadPackLen() (int64, error) {
 	dataSizeByte := make([]byte, rw.LenPlace)
 	_, err := rw.Read(dataSizeByte)
 	if err != nil {
+		plog.Debug(err)
 		return 0, err
 	}
 	dataSizeBuffer := bytes.NewBuffer(dataSizeByte)
@@ -75,11 +80,13 @@ func (rw *ReadWriter) ReadPackLen() (int64, error) {
 
 func (rw *ReadWriter) ReadPackData(length int64) ([]byte, error) {
 	if length > math.MaxUint32 {
+		plog.DebugF("read pack data out of range [%d], current system max length [%d]", length, math.MaxUint32)
 		return nil, fmt.Errorf("read pack data out of range [%d], current system max length [%d]", length, math.MaxUint32)
 	}
 	dataByte := make([]byte, length)
 	_, err := rw.Read(dataByte)
 	if err != nil {
+		plog.Debug(err)
 		return nil, err
 	}
 	return dataByte, nil
@@ -98,16 +105,19 @@ func (rw *ReadWriter) WritePack(dataByte []byte) error {
 
 	_, err := buffer.Write(respPackLen)
 	if err != nil {
+		plog.Debug(err)
 		return err
 	}
 
 	_, err = buffer.Write(encodeData)
 	if err != nil {
+		plog.Debug(err)
 		return err
 	}
 
 	_, err = rw.Write(buffer.Bytes())
 	if err != nil {
+		plog.Debug(err)
 		return err
 	}
 	return rw.Flush()
@@ -121,6 +131,7 @@ func (rw *ReadWriter) ReadToMessageChan(msgChan chan *Message) (ctx context.Cont
 			msg, err := rw.ReadPack()
 			if err != nil {
 				cancel()
+				plog.Debug(err)
 				return
 			}
 			msgChan <- msg

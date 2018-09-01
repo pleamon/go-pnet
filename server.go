@@ -3,7 +3,6 @@ package pnet
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"log"
 	"net"
 
 	//"sync"
@@ -36,6 +35,8 @@ func NewServer(addr string, config *ServerConfig) *Server {
 		server.PubKey = config.PubKey
 		server.PriKey = config.PriKey
 	}
+	plog.SetConfig(config.PlogConfig)
+	plog.Parse()
 	return server
 }
 
@@ -48,7 +49,8 @@ func (s *Server) Listen() error {
 
 		cer, err := tls.X509KeyPair(s.PubKey, s.PriKey)
 		if err != nil {
-			plog.Fatal(err.Error())
+			plog.Fatal(err)
+			return err
 		}
 		config := &tls.Config{
 			Certificates: []tls.Certificate{cer},
@@ -57,13 +59,14 @@ func (s *Server) Listen() error {
 		}
 		ln, err = tls.Listen("tcp", s.Addr, config)
 		if err != nil {
+			plog.Fatal(err)
 			return err
 		}
 	} else {
 		var err error
 		ln, err = net.Listen("tcp", s.Addr)
 		if err != nil {
-			log.Println("server listen error: ", err)
+			plog.Fatal("server listen error: ", err)
 			return err
 		}
 	}
@@ -72,7 +75,7 @@ func (s *Server) Listen() error {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Println("accept: ", err)
+			plog.Info("accept: ", err)
 		}
 		go s.handleConn(conn)
 	}
