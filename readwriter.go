@@ -8,7 +8,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 
 	"git.pleamon.com/p/plog"
@@ -95,7 +94,6 @@ func (rw *ReadWriter) ReadPackLen() (uint32, error) {
 	dataSizeBuffer := bytes.NewBuffer(dataSizeByte)
 	var dataLength uint32
 	binary.Read(dataSizeBuffer, binary.BigEndian, &dataLength)
-	log.Println("datalength", dataLength)
 
 	return dataLength, nil
 }
@@ -110,7 +108,6 @@ func (rw *ReadWriter) ReadCheckSum() (uint32, error) {
 	dataSizeBuffer := bytes.NewBuffer(dataSizeByte)
 	var dataCheckSum uint32
 	binary.Read(dataSizeBuffer, binary.BigEndian, &dataCheckSum)
-	log.Println("dataCheckSum", dataCheckSum)
 
 	return dataCheckSum, nil
 }
