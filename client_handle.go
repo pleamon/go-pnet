@@ -4,6 +4,7 @@ import (
 	"net"
 )
 
+// ClientHandler 客户端回调函数
 type ClientHandler struct {
 	GetClientID func(net.Conn) string
 	// 程序初始化时调用
@@ -20,6 +21,7 @@ type ClientHandler struct {
 	OnError func(*Server, *ClientInfo, error)
 }
 
+// NewClientHandler 创建客户端回调函数
 func NewClientHandler(config *ServerConfig) *ClientHandler {
 	return &ClientHandler{
 		GetClientID: config.GetClientID,

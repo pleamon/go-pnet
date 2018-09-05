@@ -14,11 +14,13 @@ import (
 )
 
 const (
+	// CHECKSUMFLAG 校验数据
 	CHECKSUMFLAG = 1024
 )
 
+// ReadWriter 扩展RW结构体
 type ReadWriter struct {
-	ClientId  string
+	ClientID  string
 	MessageID uint32
 	*bufio.Writer
 	*bufio.Reader
@@ -26,6 +28,7 @@ type ReadWriter struct {
 	CheckSumPlace int
 }
 
+// Message 回调消息体
 type Message struct {
 	ClientID string
 	Length   uint32
@@ -33,11 +36,12 @@ type Message struct {
 	err      error
 }
 
-func NewReaderWriterFromConn(clientId string, conn net.Conn) *ReadWriter {
+// newReaderWriterFromConn 从conn创建readwrite
+func newReaderWriterFromConn(clientID string, conn net.Conn) *ReadWriter {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 	rw := &ReadWriter{
-		ClientId:      clientId,
+		ClientID:      clientID,
 		Reader:        reader,
 		Writer:        writer,
 		LenPlace:      4,
@@ -47,10 +51,12 @@ func NewReaderWriterFromConn(clientId string, conn net.Conn) *ReadWriter {
 	return rw
 }
 
-func (rw *ReadWriter) ResetMessageId() {
+// ResetMessageID 重置消息ID
+func (rw *ReadWriter) ResetMessageID() {
 	rw.MessageID = 0
 }
 
+// ReadPack 读取一个包
 func (rw *ReadWriter) ReadPack() (*Message, error) {
 	dataLength, err := rw.readPackLen()
 	if err != nil {
@@ -77,13 +83,14 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 		return nil, ErrorCheckSumFailed
 	}
 	msg := &Message{
-		ClientID: rw.ClientId,
+		ClientID: rw.ClientID,
 		Length:   dataLength,
 		Data:     data,
 	}
 	return msg, nil
 }
 
+// readPackLen 读取数据长度
 func (rw *ReadWriter) readPackLen() (uint32, error) {
 	dataSizeByte := make([]byte, rw.LenPlace)
 	_, err := rw.Read(dataSizeByte)
@@ -98,6 +105,7 @@ func (rw *ReadWriter) readPackLen() (uint32, error) {
 	return dataLength, nil
 }
 
+// readCheckSum 读取校验数据
 func (rw *ReadWriter) readCheckSum() (uint32, error) {
 	dataSizeByte := make([]byte, rw.CheckSumPlace)
 	_, err := rw.Read(dataSizeByte)
@@ -112,6 +120,7 @@ func (rw *ReadWriter) readCheckSum() (uint32, error) {
 	return dataCheckSum, nil
 }
 
+// readPackData 读取数据区
 func (rw *ReadWriter) readPackData(length uint32) ([]byte, error) {
 	dataByte := make([]byte, length)
 	_, err := rw.Read(dataByte)
@@ -122,6 +131,7 @@ func (rw *ReadWriter) readPackData(length uint32) ([]byte, error) {
 	return dataByte, nil
 }
 
+// WritePack 向writer写入一个包
 func (rw *ReadWriter) WritePack(dataByte []byte) error {
 	length := len(dataByte)
 	if length == 0 {

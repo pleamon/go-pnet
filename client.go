@@ -32,8 +32,8 @@ func NewClient(addr string) (client *Client) {
 	return
 }
 
-// NewTlsClient create a new client.
-func NewTlsClient(addr string, caCert, pubKey, priKey []byte) (client *Client) {
+// NewTLSClient create a new client.
+func NewTLSClient(addr string, caCert, pubKey, priKey []byte) (client *Client) {
 	client = &Client{
 		Addr:   addr,
 		IsTLS:  true,
@@ -75,13 +75,11 @@ func (c *Client) Connect() (err error) {
 		}
 	}
 	c.conn = conn
-	if c.GetClientID == nil {
-		c.GetClientID = GetClientID
-	}
-	c.rw = NewReaderWriterFromConn(c.GetClientID(c.conn), c.conn)
+	c.rw = newReaderWriterFromConn(c.GetClientID(c.conn), c.conn)
 	return
 }
 
+// Disconnect 断开连接
 func (c *Client) Disconnect() error {
 	if c.conn != nil {
 		return c.conn.Close()
@@ -108,10 +106,12 @@ func (c *Client) Read() (*Message, error) {
 	return msg, nil
 }
 
+// ReadToMessageChan 监听消息
 func (c *Client) ReadToMessageChan(msgChan chan *Message) (ctx context.Context, cancel context.CancelFunc) {
 	return c.rw.ReadToMessageChan(msgChan)
 }
 
+// Close 关闭连接
 func (c *Client) Close() {
 	c.conn.Close()
 }

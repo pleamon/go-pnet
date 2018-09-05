@@ -5,6 +5,7 @@ import (
 	"net"
 )
 
+// ClientInfo 客户端信息结构体
 type ClientInfo struct {
 	Addr     string
 	ClientID string
@@ -12,8 +13,9 @@ type ClientInfo struct {
 	RW       *ReadWriter
 }
 
+// NewClientInfo 新建一个客户端信息结构
 func NewClientInfo(clientID string, conn net.Conn) *ClientInfo {
-	rw := NewReaderWriterFromConn(clientID, conn)
+	rw := newReaderWriterFromConn(clientID, conn)
 	clientInfo := &ClientInfo{
 		Addr:     conn.RemoteAddr().String(),
 		ClientID: clientID,
@@ -23,14 +25,12 @@ func NewClientInfo(clientID string, conn net.Conn) *ClientInfo {
 	return clientInfo
 }
 
-func GetClientID(conn net.Conn) string {
-	return conn.RemoteAddr().String()
-}
-
+// Write 向readwrite写入数据
 func (ci *ClientInfo) Write(data []byte) error {
 	return ci.RW.WritePack(data)
 }
 
+// ReadToMessageChan 监听消息
 func (ci *ClientInfo) ReadToMessageChan(msgChan chan *Message) (context.Context, context.CancelFunc) {
 	return ci.RW.ReadToMessageChan(msgChan)
 }

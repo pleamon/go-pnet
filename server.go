@@ -5,12 +5,12 @@ import (
 	"crypto/x509"
 	"net"
 
-	//"sync"
 	"time"
 
 	"git.pleamon.com/p/plog"
 )
 
+// Server 服务器结构体
 type Server struct {
 	Addr          string
 	HeathTicker   time.Duration
@@ -22,6 +22,7 @@ type Server struct {
 	ClientHandler *ClientHandler
 }
 
+// NewServer 创建服务结构体
 func NewServer(addr string, config *ServerConfig) *Server {
 	server := &Server{
 		Addr:          addr,
@@ -38,6 +39,7 @@ func NewServer(addr string, config *ServerConfig) *Server {
 	return server
 }
 
+// Listen 开始监听
 func (s *Server) Listen() error {
 	plog.InfoF("server start vetsion %s", VERSION)
 	var ln net.Listener
@@ -79,6 +81,7 @@ func (s *Server) Listen() error {
 	}
 }
 
+// createTicker 创建健康检查心跳机制
 func (s *Server) createTicker(tick chan time.Time, done chan bool) {
 	if s.HeathTicker == 0 {
 
@@ -96,6 +99,7 @@ func (s *Server) createTicker(tick chan time.Time, done chan bool) {
 	}
 }
 
+// handleConn 处理客户端连接
 func (s *Server) handleConn(conn net.Conn) {
 	clientID := s.ClientHandler.GetClientID(conn)
 	clientInfo := NewClientInfo(clientID, conn)
