@@ -52,12 +52,12 @@ func (rw *ReadWriter) ResetMessageId() {
 }
 
 func (rw *ReadWriter) ReadPack() (*Message, error) {
-	dataLength, err := rw.ReadPackLen()
+	dataLength, err := rw.readPackLen()
 	if err != nil {
 		plog.Error(err)
 		return nil, err
 	}
-	checkSum, err := rw.ReadCheckSum()
+	checkSum, err := rw.readCheckSum()
 	if err != nil {
 		plog.Error(err)
 	}
@@ -71,7 +71,7 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 		io.Copy(ioutil.Discard, rw)
 		return nil, nil
 	}
-	data, err := rw.ReadPackData(dataLength)
+	data, err := rw.readPackData(dataLength)
 	if err != nil {
 		plog.Error(err)
 		return nil, ErrorCheckSumFailed
@@ -84,7 +84,7 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 	return msg, nil
 }
 
-func (rw *ReadWriter) ReadPackLen() (uint32, error) {
+func (rw *ReadWriter) readPackLen() (uint32, error) {
 	dataSizeByte := make([]byte, rw.LenPlace)
 	_, err := rw.Read(dataSizeByte)
 	if err != nil {
@@ -98,7 +98,7 @@ func (rw *ReadWriter) ReadPackLen() (uint32, error) {
 	return dataLength, nil
 }
 
-func (rw *ReadWriter) ReadCheckSum() (uint32, error) {
+func (rw *ReadWriter) readCheckSum() (uint32, error) {
 	dataSizeByte := make([]byte, rw.CheckSumPlace)
 	_, err := rw.Read(dataSizeByte)
 	if err != nil {
@@ -112,7 +112,7 @@ func (rw *ReadWriter) ReadCheckSum() (uint32, error) {
 	return dataCheckSum, nil
 }
 
-func (rw *ReadWriter) ReadPackData(length uint32) ([]byte, error) {
+func (rw *ReadWriter) readPackData(length uint32) ([]byte, error) {
 	dataByte := make([]byte, length)
 	_, err := rw.Read(dataByte)
 	if err != nil {
