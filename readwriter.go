@@ -18,10 +18,6 @@ const (
 	CHECKSUMFLAG = 1024
 )
 
-var (
-	ErrorCheckSumFailed = errors.New("error check sum failed")
-)
-
 type ReadWriter struct {
 	ClientId  string
 	MessageID uint32
