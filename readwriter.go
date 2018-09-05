@@ -7,10 +7,20 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math"
 	"net"
 
 	"git.pleamon.com/p/plog"
+)
+
+const (
+	BLOCKSIZE = 4096
+)
+
+var (
+	ErrorCheckSumFailed = errors.New("error check sum failed")
 )
 
 type ReadWriter struct {
@@ -54,10 +64,15 @@ func (rw *ReadWriter) ReadPack() (*Message, error) {
 		plog.Debug(err)
 		return nil, err
 	}
+	if dataLength%BLOCKSIZE != 0 {
+		// 丢弃数据
+		io.Copy(ioutil.Discard, rw)
+		return nil, errors.New("check sum failed")
+	}
 	data, err := rw.ReadPackData(dataLength)
 	if err != nil {
 		plog.Debug(err)
-		return nil, err
+		return nil, ErrorCheckSumFailed
 	}
 	msg.Length = dataLength
 	msg.Data = data
@@ -79,24 +94,34 @@ func (rw *ReadWriter) ReadPackLen() (int64, error) {
 }
 
 func (rw *ReadWriter) ReadPackData(length int64) ([]byte, error) {
-	if length > math.MaxUint32 {
-		plog.DebugF("read pack data out of range [%d], current system max length [%d]", length, math.MaxUint32)
-		return nil, fmt.Errorf("read pack data out of range [%d], current system max length [%d]", length, math.MaxUint32)
+	if length > math.MaxInt64 {
+		plog.DebugF("read pack data out of range [%d], current system max length [%d]", length, math.MaxInt64)
+		return nil, fmt.Errorf("read pack data out of range [%d], current system max length [%d]", length, math.MaxInt64)
 	}
-	dataByte := make([]byte, length)
-	_, err := rw.Read(dataByte)
-	if err != nil {
-		plog.Debug(err)
-		return nil, err
+	buffer := &bytes.Buffer{}
+	for {
+		if length <= 0 {
+			break
+		}
+		dataByte := make([]byte, BLOCKSIZE)
+		n, err := rw.Read(dataByte)
+		if err != nil {
+			plog.Error(err)
+			return nil, err
+		}
+		buffer.Write(dataByte[0:n])
+		length = length - BLOCKSIZE
 	}
-	return dataByte, nil
+	return buffer.Bytes(), nil
 }
 
 func (rw *ReadWriter) WritePack(dataByte []byte) error {
 	if len(dataByte) == 0 {
 		return errors.New("not data")
 	}
-	dataLength := uint64(len(dataByte))
+	length := len(dataByte)
+	_length := length + (BLOCKSIZE - length%BLOCKSIZE)
+	dataLength := uint64(_length)
 	encodeData := dataByte
 	respPackLen := make([]byte, rw.LenPlace)
 	binary.BigEndian.PutUint64(respPackLen, dataLength)
@@ -129,6 +154,9 @@ func (rw *ReadWriter) ReadToMessageChan(msgChan chan *Message) (ctx context.Cont
 	go func() {
 		for {
 			msg, err := rw.ReadPack()
+			if err == ErrorCheckSumFailed {
+				continue
+			}
 			if err != nil {
 				cancel()
 				plog.Debug(err)

@@ -25,7 +25,6 @@ func main() {
 			case msg := <-msgChan:
 				log.Println("client id: ", msg.ClientID)
 				log.Println("length: ", msg.Length)
-				log.Println("raw data:", msg.RawData, string(msg.RawData))
 				log.Println("data: ", msg.Data, string(msg.Data))
 			case <-ctx.Done():
 				log.Println("done")

@@ -35,13 +35,11 @@ func NewServer(addr string, config *ServerConfig) *Server {
 		server.PubKey = config.PubKey
 		server.PriKey = config.PriKey
 	}
-	plog.SetConfig(config.PlogConfig)
-	plog.Parse()
 	return server
 }
 
 func (s *Server) Listen() error {
-
+	plog.InfoF("server start vetsion %s", VERSION)
 	var ln net.Listener
 	if s.IsTLS {
 		pool := x509.NewCertPool()
