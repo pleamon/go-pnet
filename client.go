@@ -16,7 +16,6 @@ type Client struct {
 	GetClientID func(net.Conn) string
 	conn        net.Conn
 	rw          *ReadWriter
-	Coding      *Coding
 	IsTLS       bool
 	CACert      []byte
 	PubKey      []byte
