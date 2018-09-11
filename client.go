@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"io"
 	"net"
+	"time"
 
 	"git.pleamon.com/p/plog"
 )
@@ -44,7 +45,10 @@ func NewTLSClient(addr string, caCert, pubKey, priKey []byte) (client *Client) {
 }
 
 // Connect is Client connect to Server.
-func (c *Client) Connect() (err error) {
+func (c *Client) Connect(timeout time.Duration) (err error) {
+	dialer := &net.Dialer{
+		Timeout: timeout,
+	}
 	var conn net.Conn
 	if c.IsTLS {
 		pool := x509.NewCertPool()
@@ -60,18 +64,20 @@ func (c *Client) Connect() (err error) {
 			RootCAs:      pool,
 			Certificates: []tls.Certificate{cer},
 		}
-		conn, err = tls.Dial("tcp", c.Addr, config)
+		conn, err = tls.DialWithDialer(dialer, "tcp", c.Addr, config)
 		if err != nil {
 			plog.Fatal(err)
 			return err
 		}
 	} else {
 		var err error
-		conn, err = net.Dial("tcp", c.Addr)
+		plog.Debug("start connect")
+		conn, err = dialer.Dial("tcp", c.Addr)
 		if err != nil {
 			plog.Fatal(err)
 			return err
 		}
+		plog.Debug("connect success")
 	}
 	c.conn = conn
 	c.rw = newReaderWriterFromConn(c.GetClientID(c.conn), c.conn)
